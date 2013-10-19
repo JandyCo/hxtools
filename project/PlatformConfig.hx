@@ -65,7 +65,15 @@ class PlatformConfig {
 		android.extensions = extensions;
 		android.permissions = permissions;
 		
+        var linkerFlags = ios.linkerFlags;
+        if (linkerFlags.length > 0 && config.ios.linkerFlags.length > 0) {
+            linkerFlags += " ";
+        }
+		linkerFlags += config.ios.linkerFlags;
+
 		ObjectHelper.copyUniqueFields (config.ios, ios, defaultIOS);
+
+        ios.linkerFlags = linkerFlags;
 		
 	}
 	

@@ -917,7 +917,7 @@ class ProjectXMLParser extends OpenFLProject {
 									}
 									
 								}
-								
+
 								merge (includeProject);
 								
 							}
@@ -1358,8 +1358,11 @@ class ProjectXMLParser extends OpenFLProject {
 							}
 							
 							if (element.has.resolve ("linker-flags")) {
-								
-								config.ios.linkerFlags = substitute (element.att.resolve ("linker-flags"));
+                                
+                                if (config.ios.linkerFlags.length > 0) {
+                                    config.ios.linkerFlags += " "; 
+                                }
+                                config.ios.linkerFlags += substitute (element.att.resolve ("linker-flags"));
 								
 							}
 							
