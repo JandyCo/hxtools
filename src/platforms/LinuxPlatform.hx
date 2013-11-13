@@ -4,6 +4,7 @@ package platforms;
 import haxe.io.Path;
 import haxe.Template;
 import helpers.AssetHelper;
+import helpers.CPPHelper;
 import helpers.FileHelper;
 import helpers.NekoHelper;
 import helpers.PathHelper;
@@ -11,7 +12,7 @@ import helpers.PlatformHelper;
 import helpers.ProcessHelper;
 import project.Architecture;
 import project.AssetType;
-import project.OpenFLProject;
+import project.HXProject;
 import project.Platform;
 import sys.io.File;
 import sys.io.Process;
@@ -29,22 +30,33 @@ class LinuxPlatform implements IPlatformTool {
 	private var useNeko:Bool;
 	
 	
-	public function build (project:OpenFLProject):Void {
+	public function build (project:HXProject):Void {
 		
 		initialize (project);
 		
 		var hxml = targetDirectory + "/haxe/" + (project.debug ? "debug" : "release") + ".hxml";
 		
 		PathHelper.mkdir (targetDirectory);
-		ProcessHelper.runCommand ("", "haxe", [ hxml ]);
 		
 		if (useNeko) {
 			
+			ProcessHelper.runCommand ("", "haxe", [ hxml ]);
 			NekoHelper.createExecutable (project.templatePaths, "linux" + (is64 ? "64" : ""), targetDirectory + "/obj/ApplicationMain.n", executablePath);
 			NekoHelper.copyLibraries (project.templatePaths, "linux" + (is64 ? "64" : ""), applicationDirectory);
 			
 		} else {
 			
+			var haxeArgs = [ hxml ];
+			
+			if (is64) {
+				
+				haxeArgs.push ("-D");
+				haxeArgs.push ("HXCPP_M64");
+				
+			}
+			
+			ProcessHelper.runCommand ("", "haxe", haxeArgs);
+			CPPHelper.compile (project, targetDirectory + "/obj", [ is64 ? "-DHXCPP_M64" : "" ]);
 			FileHelper.copyFile (targetDirectory + "/obj/ApplicationMain" + (project.debug ? "-debug" : ""), executablePath);
 			
 		}
@@ -58,7 +70,7 @@ class LinuxPlatform implements IPlatformTool {
 	}
 	
 	
-	public function clean (project:OpenFLProject):Void {
+	public function clean (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -71,7 +83,7 @@ class LinuxPlatform implements IPlatformTool {
 	}
 	
 	
-	public function display (project:OpenFLProject):Void {
+	public function display (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -82,7 +94,7 @@ class LinuxPlatform implements IPlatformTool {
 	}
 	
 	
-	private function generateContext (project:OpenFLProject):Dynamic {
+	private function generateContext (project:HXProject):Dynamic {
 		
 		var project = project.clone ();
 		
@@ -104,7 +116,7 @@ class LinuxPlatform implements IPlatformTool {
 	}
 	
 	
-	private function initialize (project:OpenFLProject):Void {
+	private function initialize (project:HXProject):Void {
 		
 		for (architecture in project.architectures) {
 			
@@ -151,7 +163,7 @@ class LinuxPlatform implements IPlatformTool {
 	}
 	
 	
-	public function run (project:OpenFLProject, arguments:Array <String>):Void {
+	public function run (project:HXProject, arguments:Array <String>):Void {
 		
 		if (project.target == PlatformHelper.hostPlatform) {
 			
@@ -163,16 +175,10 @@ class LinuxPlatform implements IPlatformTool {
 	}
 	
 	
-	public function update (project:OpenFLProject):Void {
+	public function update (project:HXProject):Void {
 		
 		project = project.clone ();
 		initialize (project);
-		
-		if (is64) {
-			
-			project.haxedefs.set ("HXCPP_M64", 1);
-			
-		}
 		
 		if (project.targetFlags.exists ("xml")) {
 			
@@ -196,11 +202,11 @@ class LinuxPlatform implements IPlatformTool {
 			
 			if (isRaspberryPi) {
 				
-				FileHelper.copyLibrary (ndll, "RPi", "", (ndll.haxelib != null && ndll.haxelib.name == "hxcpp") ? ".dso" : ".ndll", applicationDirectory, project.debug);
+				FileHelper.copyLibrary (ndll, "RPi", "", (ndll.haxelib != null && (ndll.haxelib.name == "hxcpp" || ndll.haxelib.name == "hxlibc")) ? ".dso" : ".ndll", applicationDirectory, project.debug);
 				
 			} else {
 				
-				FileHelper.copyLibrary (ndll, "Linux" + (is64 ? "64" : ""), "", (ndll.haxelib != null && ndll.haxelib.name == "hxcpp") ? ".dso" : ".ndll", applicationDirectory, project.debug);
+				FileHelper.copyLibrary (ndll, "Linux" + (is64 ? "64" : ""), "", (ndll.haxelib != null && (ndll.haxelib.name == "hxcpp" || ndll.haxelib.name == "hxlibc")) ? ".dso" : ".ndll", applicationDirectory, project.debug);
 				
 			}
 			
@@ -232,9 +238,9 @@ class LinuxPlatform implements IPlatformTool {
 	
 	
 	public function new () {}
-	@ignore public function install (project:OpenFLProject):Void {}
-	@ignore public function trace (project:OpenFLProject):Void {}
-	@ignore public function uninstall (project:OpenFLProject):Void {}
+	@ignore public function install (project:HXProject):Void {}
+	@ignore public function trace (project:HXProject):Void {}
+	@ignore public function uninstall (project:HXProject):Void {}
 	
 	
 }

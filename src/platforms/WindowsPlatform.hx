@@ -4,6 +4,7 @@ package platforms;
 import haxe.io.Path;
 import haxe.Template;
 import helpers.AssetHelper;
+import helpers.CPPHelper;
 import helpers.FileHelper;
 import helpers.IconHelper;
 import helpers.NekoHelper;
@@ -11,7 +12,7 @@ import helpers.PathHelper;
 import helpers.PlatformHelper;
 import helpers.ProcessHelper;
 import project.AssetType;
-import project.OpenFLProject;
+import project.HXProject;
 import sys.io.File;
 import sys.FileSystem;
 
@@ -25,21 +26,35 @@ class WindowsPlatform implements IPlatformTool {
 	private var useNeko:Bool;
 	
 	
-	public function build (project:OpenFLProject):Void {
+	public function build (project:HXProject):Void {
 		
 		initialize (project);
 		
 		var hxml = targetDirectory + "/haxe/" + (project.debug ? "debug" : "release") + ".hxml";
 		
 		PathHelper.mkdir (targetDirectory);
-		ProcessHelper.runCommand ("", "haxe", [ hxml ]);
 		
 		if (useNeko) {
 			
+			ProcessHelper.runCommand ("", "haxe", [ hxml ]);
 			NekoHelper.createExecutable (project.templatePaths, "windows", targetDirectory + "/obj/ApplicationMain.n", executablePath);
 			NekoHelper.copyLibraries (project.templatePaths, "windows", applicationDirectory);
 			
 		} else {
+			
+			var haxeArgs = [ hxml ];
+			var flags = [];
+			
+			if (!project.environment.exists ("SHOW_CONSOLE")) {
+				
+				haxeArgs.push ("-D");
+				haxeArgs.push ("no_console");
+				flags.push ("-Dno_console");
+				
+			}
+			
+			ProcessHelper.runCommand ("", "haxe", haxeArgs);
+			CPPHelper.compile (project, targetDirectory + "/obj", flags);
 			
 			FileHelper.copyFile (targetDirectory + "/obj/ApplicationMain" + (project.debug ? "-debug" : "") + ".exe", executablePath);
 			
@@ -56,7 +71,7 @@ class WindowsPlatform implements IPlatformTool {
 	}
 	
 	
-	public function clean (project:OpenFLProject):Void {
+	public function clean (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -69,7 +84,7 @@ class WindowsPlatform implements IPlatformTool {
 	}
 	
 	
-	public function display (project:OpenFLProject):Void {
+	public function display (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -80,7 +95,7 @@ class WindowsPlatform implements IPlatformTool {
 	}
 	
 	
-	private function generateContext (project:OpenFLProject):Dynamic {
+	private function generateContext (project:HXProject):Dynamic {
 		
 		var context = project.templateContext;
 		
@@ -93,7 +108,7 @@ class WindowsPlatform implements IPlatformTool {
 	}
 	
 	
-	private function initialize (project:OpenFLProject):Void {
+	private function initialize (project:HXProject):Void {
 		
 		targetDirectory = project.app.path + "/windows/cpp";
 		
@@ -110,7 +125,7 @@ class WindowsPlatform implements IPlatformTool {
 	}
 	
 	
-	public function run (project:OpenFLProject, arguments:Array <String>):Void {
+	public function run (project:HXProject, arguments:Array <String>):Void {
 		
 		if (project.target == PlatformHelper.hostPlatform) {
 			
@@ -122,15 +137,9 @@ class WindowsPlatform implements IPlatformTool {
 	}
 	
 	
-	public function update (project:OpenFLProject):Void {
+	public function update (project:HXProject):Void {
 		
 		project = project.clone ();
-		
-		if (!project.environment.exists ("SHOW_CONSOLE")) {
-			
-			project.haxedefs.set ("no_console", 1);
-			
-		}
 		
 		if (project.targetFlags.exists ("xml")) {
 			
@@ -165,7 +174,7 @@ class WindowsPlatform implements IPlatformTool {
 		
 		for (ndll in project.ndlls) {
 			
-			FileHelper.copyLibrary (ndll, "Windows", "", (ndll.haxelib != null && ndll.haxelib.name == "hxcpp") ? ".dll" : ".ndll", applicationDirectory, project.debug);
+			FileHelper.copyLibrary (ndll, "Windows", "", (ndll.haxelib != null && (ndll.haxelib.name == "hxcpp" || ndll.haxelib.name == "hxlibc")) ? ".dll" : ".ndll", applicationDirectory, project.debug);
 			
 		}
 		
@@ -200,9 +209,9 @@ class WindowsPlatform implements IPlatformTool {
 	
 	
 	public function new () {}
-	@ignore public function install (project:OpenFLProject):Void {}
-	@ignore public function trace (project:OpenFLProject):Void {}
-	@ignore public function uninstall (project:OpenFLProject):Void {}
+	@ignore public function install (project:HXProject):Void {}
+	@ignore public function trace (project:HXProject):Void {}
+	@ignore public function uninstall (project:HXProject):Void {}
 	
 	
 }

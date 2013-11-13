@@ -270,6 +270,16 @@ class PlatformSetup {
 			
 			defines = config.environment;
 			
+			for (key in defines.keys ()) {
+				
+				if (defines.get (key) == env.get (key)) {
+					
+					defines.remove (key);
+					
+				}
+				
+			}
+			
 		} else {
 			
 			defines = new Map <String, String> ();
@@ -359,13 +369,15 @@ class PlatformSetup {
 		if (!userDefines.exists ("nme")) {
 			
 			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "openfl-native" ]);
-			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "openfl-html5" ]);
 			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "openfl-samples" ]);
-			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "openfl-compatibility" ]);
+			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "openfl-html5-dom" ]);
+			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "hxlibc" ]);
+			
+		} else {
+			
+			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "hxcpp" ]);
 			
 		}
-		
-		ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "hxcpp" ]);
 		
 		if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
 			
@@ -377,7 +389,7 @@ class PlatformSetup {
 			
 			if (!userDefines.exists ("nme")) {
 				
-				File.copy (PathHelper.getHaxelib (new Haxelib ("openfl-tools")) + "\\templates\\\\bin\\openfl.bat", haxePath + "\\openfl.bat");
+				File.copy (PathHelper.getHaxelib (new Haxelib ("hxtools")) + "\\templates\\\\bin\\openfl.bat", haxePath + "\\openfl.bat");
 				
 			} else {
 				
@@ -404,7 +416,7 @@ class PlatformSetup {
 					
 					try {
 						
-						ProcessHelper.runCommand ("", "sudo", [ "cp", "-f", PathHelper.getHaxelib (new Haxelib ("openfl-tools")) + "/templates/bin/openfl.sh", "/usr/bin/openfl" ], false);
+						ProcessHelper.runCommand ("", "sudo", [ "cp", "-f", PathHelper.getHaxelib (new Haxelib ("hxtools")) + "/templates/bin/openfl.sh", "/usr/bin/openfl" ], false);
 						ProcessHelper.runCommand ("", "sudo", [ "chmod", "755", "/usr/bin/openfl" ], false);
 						installedCommand = true;
 						
@@ -420,7 +432,7 @@ class PlatformSetup {
 					Sys.println (" a) Manually add an alias called \"openfl\" to run \"haxelib run openfl\"");
 					Sys.println (" b) Run the following commands:");
 					Sys.println ("");
-					Sys.println ("sudo cp \"" + PathHelper.getHaxelib (new Haxelib ("openfl-tools")) + "/templates/bin/openfl.sh\" /usr/bin/openfl");
+					Sys.println ("sudo cp \"" + PathHelper.getHaxelib (new Haxelib ("hxtools")) + "/templates/bin/openfl.sh\" /usr/bin/openfl");
 					Sys.println ("sudo chmod 755 /usr/bin/openfl");
 					Sys.println ("");
 					
@@ -849,7 +861,7 @@ class PlatformSetup {
 			}
 			
 			Lib.println ("Launching the Android SDK Manager to install packages");
-			Lib.println ("Please install Android API 8 and SDK Platform-tools");
+			Lib.println ("Please install Android API 16 and SDK Platform-tools");
 			
 			if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
 				
@@ -864,7 +876,7 @@ class PlatformSetup {
 			if (PlatformHelper.hostPlatform != Platform.WINDOWS && FileSystem.exists (Sys.getEnv ("HOME") + "/.android")) {
 				
 				ProcessHelper.runCommand ("", "chmod", [ "-R", "777", "~/.android" ], false);
-				ProcessHelper.runCommand ("", "cp", [ PathHelper.getHaxelib (new Haxelib ("openfl-tools")) + "/templates/bin/debug.keystore", "~/.android/debug.keystore" ], false);
+				ProcessHelper.runCommand ("", "cp", [ PathHelper.getHaxelib (new Haxelib ("hxtools")) + "/templates/bin/debug.keystore", "~/.android/debug.keystore" ], false);
 				
 			}
 			
@@ -1860,7 +1872,7 @@ class PlatformSetup {
 			path = "";
 			
 		}
-			
+		
 		path = StringTools.replace (path, "\\ ", " ");
 		
 		if (PlatformHelper.hostPlatform != Platform.WINDOWS && StringTools.startsWith (path, "~/")) {
@@ -1882,7 +1894,7 @@ class PlatformSetup {
 		
 		for (key in defines.keys ()) {
 			
-			if (key != "HXCPP_CONFIG" && (!env.exists (key) || env.get (key) == defines.get (key))) {
+			if (key != "HXCPP_CONFIG" && (!env.exists (key) || env.get (key) != defines.get (key))) {
 				
 				definesText += "		<set name=\"" + key + "\" value=\"" + stripQuotes (defines.get (key)) + "\" />\n";
 				

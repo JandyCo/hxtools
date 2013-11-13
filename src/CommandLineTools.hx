@@ -27,8 +27,8 @@ class CommandLineTools {
 	private var command:String;
 	private var debug:Bool;
 	private var includePaths:Array <String>;
-	private var overrides:OpenFLProject;
-	private var project:OpenFLProject;
+	private var overrides:HXProject;
+	private var project:HXProject;
 	private var projectDefines:Map <String, String>;
 	private var targetFlags:Map <String, String>;
 	private var traceEnabled:Bool;
@@ -49,7 +49,7 @@ class CommandLineTools {
 		userDefines = new Map <String, Dynamic> ();
 		words = new Array <String> ();
 		
-		overrides = new OpenFLProject ();
+		overrides = new HXProject ();
 		overrides.architectures = [];
 		
 		processArguments ();
@@ -449,9 +449,9 @@ class CommandLineTools {
 	
 	private function findProjectFile (path:String):String {
 		
-		if (FileSystem.exists (PathHelper.combine (path, "Project.hx"))) {
+		if (FileSystem.exists (PathHelper.combine (path, "project.hxp"))) {
 			
-			return PathHelper.combine (path, "Project.hx");
+			return PathHelper.combine (path, "project.hxp");
 			
 		} else if (FileSystem.exists (PathHelper.combine (path, "project.nmml"))) {
 			
@@ -465,9 +465,9 @@ class CommandLineTools {
 			
 			var files = FileSystem.readDirectory (path);
 			var matches = new Map <String, Array <String>> ();
+			matches.set ("hxp", []);
 			matches.set ("nmml", []);
 			matches.set ("xml", []);
-			matches.set ("hx", []);
 			
 			for (file in files) {
 				
@@ -477,13 +477,19 @@ class CommandLineTools {
 					
 					var extension = Path.extension (file);
 					
-					if ((extension == "nmml" && file != "include.nmml") || (extension == "xml" && file != "include.xml") || extension == "hx") {
+					if ((extension == "nmml" && file != "include.nmml") || (extension == "xml" && file != "include.xml") || extension == "hxp") {
 						
 						matches.get (extension).push (path);
 						
 					}
 					
 				}
+				
+			}
+			
+			if (matches.get ("hxp").length > 0) {
+				
+				return matches.get ("hxp")[0];
 				
 			}
 			
@@ -496,12 +502,6 @@ class CommandLineTools {
 			if (matches.get ("xml").length > 0) {
 				
 				return matches.get ("xml")[0];
-				
-			}
-			
-			if (matches.get ("hx").length > 0) {
-				
-				return matches.get ("hx")[0];
 				
 			}
 			
@@ -519,7 +519,7 @@ class CommandLineTools {
 			var sourcePath = words[0];
 			var glyphs = "32-255";
 			
-			ProcessHelper.runCommand (Path.directory (sourcePath), "neko", [ PathHelper.getHaxelib (new Haxelib ("openfl-tools")) + "/templates/bin/hxswfml.n", "ttf2hash2", Path.withoutDirectory (sourcePath), Path.withoutDirectory (sourcePath) + ".hash", "-glyphs", glyphs ]);
+			ProcessHelper.runCommand (Path.directory (sourcePath), "neko", [ PathHelper.getHaxelib (new Haxelib ("hxtools")) + "/templates/bin/hxswfml.n", "ttf2hash2", Path.withoutDirectory (sourcePath), Path.withoutDirectory (sourcePath) + ".hash", "-glyphs", glyphs ]);
 			
 		} else if (targetFlags.exists ("font-details")) {
 			
@@ -542,7 +542,7 @@ class CommandLineTools {
 	}
 	
 	
-	private function getBuildNumber (project:OpenFLProject, increment:Bool = true):Void {
+	private function getBuildNumber (project:HXProject, increment:Bool = true):Void {
 		
 		if (project.meta.buildNumber == "1") {
 			
@@ -584,7 +584,7 @@ class CommandLineTools {
 	}
 	
 	
-	public static function getHXCPPConfig ():OpenFLProject {
+	public static function getHXCPPConfig ():HXProject {
 		
 		var environment = Sys.environment ();
 		var config = "";
@@ -650,7 +650,7 @@ class CommandLineTools {
 			
 		} else {
 			
-			json = Json.parse (File.getContent (PathHelper.getHaxelib (new Haxelib ("openfl-tools")) + "/haxelib.json"));
+			json = Json.parse (File.getContent (PathHelper.getHaxelib (new Haxelib ("hxtools")) + "/haxelib.json"));
 			
 		}
 		
@@ -665,7 +665,7 @@ class CommandLineTools {
 		var haxePath = Sys.getEnv ("HAXEPATH");
 		var command = (haxePath != null && haxePath != "") ? haxePath + "/haxelib" : "haxelib";
 		
-		var process = new Process (command, [ "path", "openfl-tools" ]);
+		var process = new Process (command, [ "path", "hxtools" ]);
 		var path = "";
 		
 		try {
@@ -677,7 +677,7 @@ class CommandLineTools {
 				var length = lines.length;
 				var line = process.stdout.readLine ();
 				
-				if (length > 0 && StringTools.trim (line) == "-D openfl-tools") {
+				if (length > 0 && StringTools.trim (line) == "-D hxtools") {
 					
 					path = StringTools.trim (lines[length - 1]);
 					
@@ -689,10 +689,9 @@ class CommandLineTools {
    			
 		} catch (e:Dynamic) {
 			
-			process.close ();
-			
 		}
 		
+		process.close ();
 		path += "/ndll/";
 		
 		switch (PlatformHelper.hostPlatform) {
@@ -746,7 +745,7 @@ class CommandLineTools {
 	#end
 	
 	
-	private function initializeProject ():OpenFLProject {
+	private function initializeProject ():HXProject {
 		
 		LogHelper.info ("", "Initializing project...");
 		
@@ -780,7 +779,7 @@ class CommandLineTools {
 		
 		if (projectFile == "") {
 			
-			LogHelper.error ("You must have a \"project.nmml\" file or specify another valid project file when using the '" + command + "' command");
+			LogHelper.error ("You must have a \"project.xml\" file or specify another valid project file when using the '" + command + "' command");
 			return null;
 			
 		} else {
@@ -854,89 +853,25 @@ class CommandLineTools {
 			
 		}
 		
-		OpenFLProject._command = command;
-		OpenFLProject._debug = debug;
-		OpenFLProject._target = target;
-		OpenFLProject._targetFlags = targetFlags;
-		//OpenFLProject._templatePaths = [ nme + "/templates/default", nme + "/tools/command-line" ];
+		HXProject._command = command;
+		HXProject._debug = debug;
+		HXProject._target = target;
+		HXProject._targetFlags = targetFlags;
+		//HXProject._templatePaths = [ nme + "/templates/default", nme + "/tools/command-line" ];
 		
 		try { Sys.setCwd (Path.directory (projectFile)); } catch (e:Dynamic) {}
 		
-		var project:OpenFLProject = null;
+		var project:HXProject = null;
 		
 		if (Path.extension (projectFile) == "nmml" || Path.extension (projectFile) == "xml") {
 			
 			project = new ProjectXMLParser (Path.withoutDirectory (projectFile), userDefines, includePaths);
 			
-		} else if (Path.extension (projectFile) == "hx") {
+		} else if (Path.extension (projectFile) == "hxp") {
 			
-			var path = FileSystem.fullPath (Path.withoutDirectory (projectFile));
-			var name = Path.withoutDirectory (Path.withoutExtension (projectFile));
-			
-			var tempFile = PathHelper.getTemporaryFile (".n");
-			
-			ProcessHelper.runCommand ("", "haxe", [ name, "-main", "project.OpenFLProject", "-neko", tempFile, "-lib", "openfl-tools", "-lib", "openfl", "-lib", "openfl-native", /*"-lib", "xfl", "-lib", "swf",*/ "-lib", "svg", "--remap", "flash:flash" ]);
-			
-			var process = new Process ("neko", [ FileSystem.fullPath (tempFile), name, OpenFLProject._command, Std.string (OpenFLProject._debug), Std.string (OpenFLProject._target), Serializer.run (OpenFLProject._targetFlags), Serializer.run (OpenFLProject._templatePaths) ]);
-			var output = process.stdout.readAll ().toString ();
-			var error = process.stderr.readAll ().toString ();
-			process.exitCode ();
-			process.close ();
-			
-			try {
-				
-				var unserializer = new Unserializer (output);
-				unserializer.setResolver (cast { resolveEnum: Type.resolveEnum, resolveClass: resolveClass });
-				project = unserializer.unserialize ();
-				
-			} catch (e:Dynamic) {}
-			
-			FileSystem.deleteFile (tempFile);
+			project = HXProject.fromFile (projectFile, userDefines, includePaths);
 			
 			if (project != null) {
-				
-				for (haxelib in project.haxelibs) {
-					
-					if (haxelib.name == "nme" && userDefines.exists ("openfl")) {
-						
-						haxelib.name = "openfl-compatibility";
-						haxelib.version = "";
-						
-					}
-					
-					var path = PathHelper.getHaxelib (haxelib);
-					var includePath = "";
-					
-					if (FileSystem.exists (path + "/include.nmml")) {
-						
-						includePath = path + "/include.nmml";
-						
-					} else if (FileSystem.exists (path + "/include.xml")) {
-						
-						includePath = path + "/include.xml";
-						
-					}
-					
-					if (includePath != "") {
-						
-						var includeProject = new ProjectXMLParser (includePath, userDefines);
-						
-						for (ndll in includeProject.ndlls) {
-							
-							if (ndll.haxelib == null) {
-								
-								ndll.haxelib = haxelib;
-								
-							}
-							
-						}
-						
-						includeProject.sources.push (path);
-						project.merge (includeProject);
-						
-					}
-					
-				}
 				
 				project.command = command;
 				project.debug = debug;
@@ -944,13 +879,18 @@ class CommandLineTools {
 				project.targetFlags = targetFlags;
 				//project.templatePaths = project.templatePaths.concat ([ nme + "/templates/default", nme + "/tools/command-line" ]);
 				
+			} else {
+				
+				LogHelper.error ("Could not process \"" + projectFile + "\"");
+				return null;
+				
 			}
 			
 		}
 		
 		if (project == null) {
 			
-			LogHelper.error ("You must have a \"project.nmml\" file or specify another NME project file when using the '" + command + "' command");
+			LogHelper.error ("You must have a \"project.xml\" file or specify another valid project file when using the '" + command + "' command");
 			return null;
 			
 		}
@@ -964,6 +904,9 @@ class CommandLineTools {
 			project.haxedefs.set ("nme_install_tool", 1);
 			project.haxedefs.set ("nme_ver", version);
 			project.haxedefs.set ("nme" + version.split (".")[0], 1);
+			
+			project.config.cpp.buildLibrary = "hxcpp";
+			project.config.cpp.requireBuild = false;
 			
 		}
 		
@@ -1042,21 +985,6 @@ class CommandLineTools {
 		}
 		
 		return project;
-		
-	}
-	
-	
-	private function resolveClass (name:String):Class <Dynamic> {
-		
-		if (name.toLowerCase ().indexOf ("project") > -1 && name.indexOf ("project.") == -1) {
-			
-			return OpenFLProject;
-			
-		} else {
-			
-			return Type.resolveClass (name);
-			
-		}
 		
 	}
 	

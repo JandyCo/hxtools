@@ -6,14 +6,15 @@ import haxe.Serializer;
 import haxe.Unserializer;
 import helpers.PathHelper;
 import openfl.Assets;
-import project.OpenFLProject;
+import project.HXProject;
 import sys.io.File;
+import sys.FileSystem;
 
 
 class AssetHelper {
 	
 	
-	public static function createManifest (project:OpenFLProject, targetPath:String = ""):String {
+	public static function createManifest (project:HXProject, targetPath:String = ""):String {
 		
 		var manifest = new Array <AssetData> ();
 		
@@ -45,7 +46,7 @@ class AssetHelper {
 	}
 	
 	
-	public static function processLibraries (project:OpenFLProject):Void {
+	public static function processLibraries (project:HXProject):Void {
 		
 		var handlers = new Array <String> ();
 		
@@ -73,6 +74,9 @@ class AssetHelper {
 		if (handlers.length > 0) {
 			
 			var projectData = Serializer.run (project);
+			var temporaryFile = PathHelper.getTemporaryFile ();
+			
+			File.saveContent (temporaryFile, projectData);
 			
 			for (handler in handlers) {
 				
@@ -81,12 +85,12 @@ class AssetHelper {
 				var cache = LogHelper.verbose;
 				LogHelper.verbose = false;
 				
-				var output = ProcessHelper.runProcess ("", "haxelib", [ "run", handler, "process", projectData ]);
+				var output = ProcessHelper.runProcess ("", "haxelib", [ "run", handler, "process", temporaryFile ]);
 				
 				LogHelper.verbose = cache;
 				
 				//var output = "";
-				//ProcessHelper.runCommand ("", "haxelib", [ "run", handler, "process", projectData ]);
+				//ProcessHelper.runCommand ("", "haxelib", [ "run", handler, "process", temporaryFile ]);
 				//Sys.println (output);
 				//Sys.exit (0);
 				
@@ -94,7 +98,7 @@ class AssetHelper {
 					
 					try {
 						
-						var data:OpenFLProject = Unserializer.run (output);
+						var data:HXProject = Unserializer.run (output);
 						project.merge (data);
 						
 					} catch (e:Dynamic) {
@@ -106,6 +110,12 @@ class AssetHelper {
 				}
 				
 			}
+			
+			try {
+				
+				FileSystem.deleteFile (temporaryFile);
+				
+			} catch (e:Dynamic) {}
 			
 		}
 		

@@ -4,6 +4,7 @@ package platforms;
 import haxe.io.Path;
 import haxe.Template;
 import helpers.AssetHelper;
+import helpers.CPPHelper;
 import helpers.FileHelper;
 import helpers.IconHelper;
 import helpers.NekoHelper;
@@ -12,7 +13,7 @@ import helpers.PlatformHelper;
 import helpers.ProcessHelper;
 import project.Architecture;
 import project.AssetType;
-import project.OpenFLProject;
+import project.HXProject;
 import project.Platform;
 import sys.io.File;
 import sys.FileSystem;
@@ -30,22 +31,35 @@ class MacPlatform implements IPlatformTool {
 	private var useNeko:Bool;
 	
 	
-	public function build (project:OpenFLProject):Void {
+	public function build (project:HXProject):Void {
 		
 		initialize (project);
 		
 		var hxml = targetDirectory + "/haxe/" + (project.debug ? "debug" : "release") + ".hxml";
 		
 		PathHelper.mkdir (targetDirectory);
-		ProcessHelper.runCommand ("", "haxe", [ hxml ]);
 		
 		if (useNeko) {
 			
+			ProcessHelper.runCommand ("", "haxe", [ hxml ]);
 			NekoHelper.createExecutable (project.templatePaths, "Mac" + (is64 ? "64" : ""), targetDirectory + "/obj/ApplicationMain.n", executablePath);
 			NekoHelper.copyLibraries (project.templatePaths, "Mac" + (is64 ? "64" : ""), executableDirectory);
 			
 		} else {
 			
+			var haxeArgs = [ hxml, "-D", "HXCPP_CLANG" ];
+			var flags = [ "-DHXCPP_CLANG" ];
+			
+			if (is64) {
+				
+				haxeArgs.push ("-D");
+				haxeArgs.push ("HXCPP_M64");
+				flags.push ("-DHXCPP_M64");
+				
+			}
+			
+			ProcessHelper.runCommand ("", "haxe", haxeArgs);
+			CPPHelper.compile (project, targetDirectory + "/obj", flags);
 			FileHelper.copyFile (targetDirectory + "/obj/ApplicationMain" + (project.debug ? "-debug" : ""), executablePath);
 			
 		}
@@ -59,7 +73,7 @@ class MacPlatform implements IPlatformTool {
 	}
 	
 	
-	public function clean (project:OpenFLProject):Void {
+	public function clean (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -72,7 +86,7 @@ class MacPlatform implements IPlatformTool {
 	}
 	
 	
-	public function display (project:OpenFLProject):Void {
+	public function display (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -83,7 +97,7 @@ class MacPlatform implements IPlatformTool {
 	}
 	
 	
-	private function generateContext (project:OpenFLProject):Dynamic {
+	private function generateContext (project:HXProject):Dynamic {
 		
 		var context = project.templateContext;
 		context.NEKO_FILE = targetDirectory + "/obj/ApplicationMain.n";
@@ -95,7 +109,7 @@ class MacPlatform implements IPlatformTool {
 	}
 	
 	
-	private function initialize (project:OpenFLProject):Void {
+	private function initialize (project:HXProject):Void {
 		
 		if (project.targetFlags.exists ("neko") || project.target != PlatformHelper.hostPlatform) {
 			
@@ -131,7 +145,7 @@ class MacPlatform implements IPlatformTool {
 	}
 	
 	
-	public function run (project:OpenFLProject, arguments:Array <String>):Void {
+	public function run (project:HXProject, arguments:Array <String>):Void {
 		
 		if (project.target == PlatformHelper.hostPlatform) {
 			
@@ -143,24 +157,12 @@ class MacPlatform implements IPlatformTool {
 	}
 	
 	
-	public function update (project:OpenFLProject):Void {
+	public function update (project:HXProject):Void {
 		
 		initialize (project);
 		
 		project = project.clone ();
 		
-		if (is64) {
-			
-			project.haxedefs.set ("HXCPP_M64", 1);
-			
-		}
-
-		if (!useNeko) {
-
-			project.haxedefs.set ("HXCPP_CLANG", "1");
-
-		}
-
 		if (project.targetFlags.exists ("xml")) {
 			
 			project.haxeflags.push ("-xml " + targetDirectory + "/types.xml");
@@ -184,7 +186,7 @@ class MacPlatform implements IPlatformTool {
 		
 		for (ndll in project.ndlls) {
 			
-			FileHelper.copyLibrary (ndll, "Mac" + (is64 ? "64" : ""), "", (ndll.haxelib != null && ndll.haxelib.name == "hxcpp") ? ".dylib" : ".ndll", executableDirectory, project.debug);
+			FileHelper.copyLibrary (ndll, "Mac" + (is64 ? "64" : ""), "", (ndll.haxelib != null && (ndll.haxelib.name == "hxcpp" || ndll.haxelib.name == "hxlibc")) ? ".dylib" : ".ndll", executableDirectory, project.debug);
 			
 		}
 		
@@ -213,9 +215,9 @@ class MacPlatform implements IPlatformTool {
 	
 	
 	public function new () {}
-	@ignore public function install (project:OpenFLProject):Void {}
-	@ignore public function trace (project:OpenFLProject):Void {}
-	@ignore public function uninstall (project:OpenFLProject):Void {}
+	@ignore public function install (project:HXProject):Void {}
+	@ignore public function trace (project:HXProject):Void {}
+	@ignore public function uninstall (project:HXProject):Void {}
 	
 	
 }

@@ -11,13 +11,13 @@ import project.Asset;
 import project.AssetType;
 import project.Dependency;
 import project.Haxelib;
-import project.OpenFLProject;
+import project.HXProject;
 import project.PlatformConfig;
 import sys.io.File;
 import sys.FileSystem;
 
 
-class ProjectXMLParser extends OpenFLProject {
+class ProjectXMLParser extends HXProject {
 	
 	
 	public var includePaths:Array <String>;
@@ -484,11 +484,11 @@ class ProjectXMLParser extends OpenFLProject {
 					
 				} else {
 					
-					if (type == null) {
+					//if (type == null) {
 						
 						include = "*";
 						
-					} else {
+					/*} else {
 						
 						switch (type) {
 							
@@ -502,7 +502,7 @@ class ProjectXMLParser extends OpenFLProject {
 							
 							case MUSIC:
 								
-								include = "*.mp2|*.mp3";
+								include = "*.mp2|*.mp3|*.ogg";
 							
 							case FONT:
 								
@@ -518,7 +518,7 @@ class ProjectXMLParser extends OpenFLProject {
 							
 						}
 						
-					}
+					}*/
 					
 				}
 				
@@ -832,7 +832,7 @@ class ProjectXMLParser extends OpenFLProject {
 							
 						}
 						
-						if (path != null && path != "" && FileSystem.exists (path)) {
+						if (path != null && path != "" && FileSystem.exists (path) && !FileSystem.isDirectory (path)) {
 							
 							var includeProject = new ProjectXMLParser (path, localDefines);
 							
@@ -852,7 +852,16 @@ class ProjectXMLParser extends OpenFLProject {
 							
 						} else if (!element.has.noerror) {
 							
-							LogHelper.error ("Could not find include file \"" + path + "\"");
+							if (path == "" || FileSystem.isDirectory (path)) {
+								
+								var errorPath = (element.has.path ? element.att.path : element.att.name);
+								LogHelper.error ("\"" + errorPath + "\" does not appear to be a valid <include /> path");
+								
+							} else {
+								
+								LogHelper.error ("Could not find include file \"" + path + "\"");
+								
+							}	
 							
 						}
 					
@@ -881,7 +890,7 @@ class ProjectXMLParser extends OpenFLProject {
 						
 						if (name == "nme" && localDefines.exists ("openfl")) {
 							
-							name = "openfl-compatibility";
+							name = "openfl-nme-compatibility";
 							version = "";
 							
 						}
@@ -938,7 +947,15 @@ class ProjectXMLParser extends OpenFLProject {
 						
 						if (haxelib == null && (name == "std" || name == "regexp" || name == "zlib")) {
 							
-							haxelib = new Haxelib ("hxcpp");
+							if (localDefines.exists ("nme")) {
+								
+								haxelib = new Haxelib ("hxcpp");
+								
+							} else {
+								
+								haxelib = new Haxelib ("hxlibc");
+								
+							}
 							
 						}
 						
@@ -960,17 +977,25 @@ class ProjectXMLParser extends OpenFLProject {
 						
 					case "architecture":
 						
-						var name = "";
-						
 						if (element.has.name) {
 							
-							name = substitute (element.att.name);
+							var name = substitute (element.att.name);
 							
-						}
-						
-						if (Reflect.hasField (Architecture, name.toUpperCase ())) {
+							if (Reflect.hasField (Architecture, name.toUpperCase ())) {
+								
+								ArrayHelper.addUnique (architectures, Reflect.field (Architecture, name.toUpperCase ()));
+								
+							}
 							
-							ArrayHelper.addUnique (architectures, Reflect.field (Architecture, name.toUpperCase ()));
+						} else if (element.has.exclude) {
+							
+							var exclude = substitute (element.att.exclude);
+							
+							if (Reflect.hasField (Architecture, exclude.toUpperCase ())) {
+								
+								architectures.remove (Reflect.field (Architecture, exclude.toUpperCase ()));
+								
+							}
 							
 						}
 					

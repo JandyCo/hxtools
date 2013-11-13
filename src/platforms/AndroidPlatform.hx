@@ -6,6 +6,7 @@ import haxe.Template;
 import helpers.AndroidHelper;
 import helpers.ArrayHelper;
 import helpers.AssetHelper;
+import helpers.CPPHelper;
 import helpers.FileHelper;
 import helpers.IconHelper;
 import helpers.LogHelper;
@@ -13,7 +14,7 @@ import helpers.PathHelper;
 import helpers.ProcessHelper;
 import project.Architecture;
 import project.AssetType;
-import project.OpenFLProject;
+import project.HXProject;
 import sys.io.File;
 import sys.FileSystem;
 
@@ -24,7 +25,7 @@ class AndroidPlatform implements IPlatformTool {
 	private var deviceID:String;
 	
 	
-	public function build (project:OpenFLProject):Void {
+	public function build (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -36,7 +37,9 @@ class AndroidPlatform implements IPlatformTool {
 		
 		if (ArrayHelper.containsValue (project.architectures, Architecture.ARMV5) || ArrayHelper.containsValue (project.architectures, Architecture.ARMV6)) {
 			
-			ProcessHelper.runCommand ("", "haxe", [ hxml ] );
+			ProcessHelper.runCommand ("", "haxe", [ hxml, "-D", "android", "-D", "android-9" ] );
+			CPPHelper.compile (project, project.app.path + "/android/obj", [ "-Dandroid", "-Dandroid-9" ]);
+			
 			FileHelper.copyIfNewer (project.app.path + "/android/obj/libApplicationMain" + (project.debug ? "-debug" : "") + ".so", armv5);
 			
 		} else {
@@ -51,7 +54,9 @@ class AndroidPlatform implements IPlatformTool {
 		
 		if (ArrayHelper.containsValue (project.architectures, Architecture.ARMV7)) {
 			
-			ProcessHelper.runCommand ("", "haxe", [ hxml, "-D", "HXCPP_ARMV7" ] );
+			ProcessHelper.runCommand ("", "haxe", [ hxml, "-D", "android", "-D", "android-9", "-D", "HXCPP_ARMV7" ] );
+			CPPHelper.compile (project, project.app.path + "/android/obj", [ "-Dandroid", "-Dandroid-9", "-DHXCPP_ARMV7" ]);
+			
 			FileHelper.copyIfNewer (project.app.path + "/android/obj/libApplicationMain" + (project.debug ? "-debug" : "") + "-v7.so", armv7);
 			
 		} else {
@@ -69,7 +74,7 @@ class AndroidPlatform implements IPlatformTool {
 	}
 	
 	
-	public function clean (project:OpenFLProject):Void {
+	public function clean (project:HXProject):Void {
 		
 		var targetPath = project.app.path + "/android";
 		
@@ -82,7 +87,7 @@ class AndroidPlatform implements IPlatformTool {
 	}
 	
 	
-	public function display (project:OpenFLProject):Void {
+	public function display (project:HXProject):Void {
 		
 		var hxml = PathHelper.findTemplate (project.templatePaths, "android/hxml/" + (project.debug ? "debug" : "release") + ".hxml");
 		
@@ -95,7 +100,7 @@ class AndroidPlatform implements IPlatformTool {
 	}
 	
 	
-	public function install (project:OpenFLProject):Void {
+	public function install (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -112,7 +117,7 @@ class AndroidPlatform implements IPlatformTool {
    }
 	
 	
-	private function initialize (project:OpenFLProject):Void {
+	private function initialize (project:HXProject):Void {
 		
 		if (!project.environment.exists ("ANDROID_SETUP")) {
 			
@@ -126,7 +131,7 @@ class AndroidPlatform implements IPlatformTool {
 	}
 	
 	
-	public function run (project:OpenFLProject, arguments:Array <String>):Void {
+	public function run (project:HXProject, arguments:Array <String>):Void {
 		
 		initialize (project);
 		
@@ -135,7 +140,7 @@ class AndroidPlatform implements IPlatformTool {
 	}
 	
 	
-	public function trace (project:OpenFLProject):Void {
+	public function trace (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -144,7 +149,7 @@ class AndroidPlatform implements IPlatformTool {
 	}
 	
 	
-	public function uninstall (project:OpenFLProject):Void {
+	public function uninstall (project:HXProject):Void {
 		
 		initialize (project);
 		
@@ -153,7 +158,7 @@ class AndroidPlatform implements IPlatformTool {
 	}
 	
 	
-	public function update (project:OpenFLProject):Void {
+	public function update (project:HXProject):Void {
 		
 		project = project.clone ();
 		

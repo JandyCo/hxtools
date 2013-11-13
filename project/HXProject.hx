@@ -14,8 +14,14 @@ import helpers.StringMapHelper;
 import project.AssetType;
 import sys.FileSystem;
 
+#if openfl_native
+import helpers.FileHelper;
+import helpers.ProcessHelper;
+import sys.io.Process;
+#end
 
-class OpenFLProject {
+
+class HXProject {
 	
 	
 	public var app:ApplicationData;
@@ -65,11 +71,11 @@ class OpenFLProject {
 		
 		if (args.length > 1) {
 			
-			OpenFLProject._command = args[1];
-			OpenFLProject._debug = (args[2] == "true");
-			OpenFLProject._target = Type.createEnum (Platform, args[3]);
-			OpenFLProject._targetFlags = Unserializer.run (args[4]);
-			OpenFLProject._templatePaths = Unserializer.run (args[5]);
+			HXProject._command = args[1];
+			HXProject._debug = (args[2] == "true");
+			HXProject._target = Type.createEnum (Platform, args[3]);
+			HXProject._targetFlags = Unserializer.run (args[4]);
+			HXProject._templatePaths = Unserializer.run (args[5]);
 			
 		}
 		
@@ -95,7 +101,7 @@ class OpenFLProject {
 		templatePaths = _templatePaths.copy ();
 		
 		defaultMeta = { title: "MyApplication", description: "", packageName: "com.example.myapp", version: "1.0.0", company: "Example, Inc.", buildNumber: "1", companyID: "" }
-		defaultApp = { main: "Main", file: "MyApplication", path: "bin", preloader: "NMEPreloader", swfVersion: 11, url: "" }
+		defaultApp = { main: "Main", file: "MyApplication", path: "bin", preloader: "NMEPreloader", swfVersion: 11.2, url: "" }
 		defaultWindow = { width: 800, height: 600, parameters: "{}", background: 0xFFFFFF, fps: 30, hardware: true, resizable: true, borderless: false, orientation: Orientation.AUTO, vsync: false, fullscreen: false, antialiasing: 0, allowShaders: true, requireShaders: false, depthBuffer: false, stencilBuffer: false }
 		
 		switch (target) {
@@ -172,16 +178,17 @@ class OpenFLProject {
 	}
 	
 	
-	public function clone ():OpenFLProject {
+	public function clone ():HXProject {
 		
-		var project = new OpenFLProject ();
+		var project = new HXProject ();
 		
 		ObjectHelper.copyFields (app, project.app);
 		project.architectures = architectures.copy ();
+		project.assets = assets.copy ();
 		
-		for (asset in assets) {
+		for (i in 0...assets.length) {
 			
-			project.assets.push (asset.clone ());
+			project.assets[i] = assets[i].clone ();
 			
 		}
 		
@@ -332,6 +339,53 @@ class OpenFLProject {
 	}
 	
 	
+	#if openfl_native
+	
+	public static function fromFile (projectFile:String, userDefines:Map <String, Dynamic> = null, includePaths:Array <String> = null):HXProject {
+		
+		var project = null;
+		
+		var path = FileSystem.fullPath (Path.withoutDirectory (projectFile));
+		var name = Path.withoutDirectory (Path.withoutExtension (projectFile));
+		name = name.substr (0, 1).toUpperCase () + name.substr (1);
+		
+		var tempDirectory = PathHelper.getTemporaryDirectory ();
+		var classFile = PathHelper.combine (tempDirectory, name + ".hx");
+		var nekoOutput = PathHelper.combine (tempDirectory, name + ".n");
+		
+		FileHelper.copyFile (path, classFile);
+		
+		ProcessHelper.runCommand (tempDirectory, "haxe", [ name, "-main", "project.HXProject", "-cp", path, "-cp", ".", "-neko", nekoOutput, "-lib", "hxtools", "-lib", "openfl", "-lib", "openfl-native", /*"-lib", "xfl", "-lib", "swf", "-lib", "svg",*/ "--remap", "flash:flash" ]);
+		
+		var process = new Process ("neko", [ FileSystem.fullPath (nekoOutput), name, HXProject._command, Std.string (HXProject._debug), Std.string (HXProject._target), Serializer.run (HXProject._targetFlags), Serializer.run (HXProject._templatePaths) ]);
+		var output = process.stdout.readAll ().toString ();
+		var error = process.stderr.readAll ().toString ();
+		process.exitCode ();
+		process.close ();
+		
+		try {
+			
+			var unserializer = new Unserializer (output);
+			unserializer.setResolver (cast { resolveEnum: Type.resolveEnum, resolveClass: resolveClass });
+			project = unserializer.unserialize ();
+			
+		} catch (e:Dynamic) {}
+		
+		PathHelper.removeDirectory (tempDirectory);
+		
+		if (project != null) {
+			
+			processHaxelibs (project, userDefines);
+			
+		}
+		
+		return project;
+		
+	}
+	
+	#end
+	
+	
 	public function include (path:String):Void {
 		
 		// extend project file somehow?
@@ -442,7 +496,7 @@ class OpenFLProject {
 	}
 	
 	
-	public function merge (project:OpenFLProject):Void {
+	public function merge (project:HXProject):Void {
 		
 		if (project != null) {
 			
@@ -496,6 +550,81 @@ class OpenFLProject {
 		}
 		
 	}
+	
+	
+	#if openfl_native
+	
+	@:noCompletion private static function processHaxelibs (project:HXProject, userDefines:Map <String, Dynamic>):Void {
+		
+		for (haxelib in project.haxelibs) {
+					
+			if (haxelib.name == "nme" && userDefines.exists ("openfl")) {
+				
+				haxelib.name = "openfl-nme-compatibility";
+				haxelib.version = "";
+				
+			}
+			
+			var path = PathHelper.getHaxelib (haxelib);
+			var includePath = "";
+			
+			if (FileSystem.exists (path + "/include.nmml")) {
+				
+				includePath = path + "/include.nmml";
+				
+			} else if (FileSystem.exists (path + "/include.xml")) {
+				
+				includePath = path + "/include.xml";
+				
+			}
+			
+			if (includePath != "") {
+				
+				var includeProject = new ProjectXMLParser (includePath, userDefines);
+				
+				for (ndll in includeProject.ndlls) {
+					
+					if (ndll.haxelib == null) {
+						
+						ndll.haxelib = haxelib;
+						
+					}
+					
+				}
+				
+				includeProject.sources.push (path);
+				processHaxelibs (includeProject, userDefines);
+				
+				project.merge (includeProject);
+				
+			} else {
+				
+				project.sources.push (path);
+				
+			}
+			
+		}
+		
+	}
+	
+	
+	@:noCompletion private static function resolveClass (name:String):Class <Dynamic> {
+		
+		var type = Type.resolveClass (name);
+		
+		if (type == null) {
+			
+			return HXProject;
+			
+		} else {
+			
+			return type;
+			
+		}
+		
+	}
+	
+	#end
 	
 	
 	public function setenv (name:String, value:String):Void {
