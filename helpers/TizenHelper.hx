@@ -1,6 +1,8 @@
 package helpers;
 
 
+import haxe.crypto.Crc32;
+import haxe.io.Bytes;
 import haxe.io.Eof;
 import helpers.PlatformHelper;
 import helpers.ProcessHelper;
@@ -12,12 +14,18 @@ import sys.FileSystem;
 class TizenHelper {
 	
 	
+	private static var cacheID:String = null;
+	private static var cacheUUID:String = null;
+	
+	
 	public static function createPackage (project:HXProject, workingDirectory:String, targetPath:String):Void {
 		
+		var keystore = null;
 		var password = null;
 		
 		if (project.certificate != null) {
 			
+			keystore = project.certificate.path;
 			password = project.certificate.password;
 			
 			if (password == null) {
@@ -29,31 +37,63 @@ class TizenHelper {
 			
 		}
 		
-		if (FileSystem.exists (PathHelper.combine (workingDirectory, project.meta.packageName + "-" + project.meta.version + "-arm.tpk"))) {
+		if (keystore == null) {
+			
+			keystore = PathHelper.findTemplate (project.templatePaths, "bin/debug.p12");
+			password = "1234";
+			
+		}
+		
+		if (FileSystem.exists (PathHelper.combine (workingDirectory, getUUID (project) + "-" + project.meta.version + "-arm.tpk"))) {
 			
 			try {
 				
-				FileSystem.deleteFile ((PathHelper.combine (workingDirectory, project.meta.packageName + "-" + project.meta.version + "-arm.tpk")));
+				FileSystem.deleteFile ((PathHelper.combine (workingDirectory, getUUID (project) + "-" + project.meta.version + "-arm.tpk")));
 				
 			} catch (e:Dynamic) {}
 			
 		}
 		
-		runCommand (project, workingDirectory, "native-packaging" , [ "--sign-author-key", project.certificate.path, "--sign-author-pwd", password ]);
+		runCommand (project, workingDirectory, "native-packaging" , [ "--sign-author-key", keystore, "--sign-author-pwd", password ]);
+		
+	}
+	
+	
+	public static function getUUID (project:HXProject):String {
+		
+		if (cacheID != project.meta.packageName) {
+			
+			if (project.meta.packageName != null || project.meta.packageName.length == 10 || project.meta.packageName.indexOf (".") == -1) {
+				
+				var bytes = Bytes.ofString (project.meta.packageName);
+				var crc = Crc32.make (bytes);
+				cacheUUID = StringHelper.generateUUID (10, null, crc);
+				
+			} else {
+				
+				cacheUUID = project.meta.packageName;
+				
+			}
+			
+			cacheID = project.meta.packageName;
+			
+		}
+		
+		return cacheUUID;
 		
 	}
 	
 	
 	public static function install (project:HXProject, workingDirectory:String):Void {
 		
-		runCommand (project, "", "native-install", [ "--package", FileSystem.fullPath (workingDirectory + "/" + project.meta.packageName + "-" + project.meta.version + "-arm.tpk") ]);
+		runCommand (project, "", "native-install", [ "--package", FileSystem.fullPath (workingDirectory + "/" + getUUID (project) + "-" + project.meta.version + "-arm.tpk") ]);
 		
 	}
 	
 	
 	public static function launch (project:HXProject):Void {
 		
-		runCommand (project, "", "native-run", [ "--package", project.meta.packageName ]);
+		runCommand (project, "", "native-run", [ "--package", getUUID (project) ]);
 		
 	}
 	

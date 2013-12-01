@@ -73,10 +73,14 @@ class PathHelper {
 		
 		if (PlatformHelper.hostPlatform != Platform.WINDOWS) {
 			
+			path = StringTools.replace (path, "\\ ", " ");
 			path = StringTools.replace (path, " ", "\\ ");
+			path = StringTools.replace (path, "\\'", "'");
+			path = StringTools.replace (path, "'", "\\'");
 			
 		} else {
 			
+			path = StringTools.replace (path, "^,", ",");
 			path = StringTools.replace (path, ",", "^,");
 			
 		}
@@ -287,6 +291,12 @@ class PathHelper {
 		} else {
 			
 			path = Sys.getEnv ("TMPDIR");
+			
+			if (path == null) {
+				
+				path = "/tmp";
+				
+			}
 			
 		}
 		

@@ -130,6 +130,8 @@ class PlatformSetup {
 		var progress = new Progress (out);
 		var h = new Http (remotePath);
 		
+		h.cnxTimeout = 30;
+		
 		h.onError = function (e) {
 			progress.close();
 			FileSystem.deleteFile (localPath);
@@ -389,7 +391,7 @@ class PlatformSetup {
 			
 			if (!userDefines.exists ("nme")) {
 				
-				File.copy (PathHelper.getHaxelib (new Haxelib ("hxtools")) + "\\templates\\\\bin\\openfl.bat", haxePath + "\\openfl.bat");
+				File.copy (PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "\\templates\\\\bin\\openfl.bat", haxePath + "\\openfl.bat");
 				
 			} else {
 				
@@ -416,7 +418,7 @@ class PlatformSetup {
 					
 					try {
 						
-						ProcessHelper.runCommand ("", "sudo", [ "cp", "-f", PathHelper.getHaxelib (new Haxelib ("hxtools")) + "/templates/bin/openfl.sh", "/usr/bin/openfl" ], false);
+						ProcessHelper.runCommand ("", "sudo", [ "cp", "-f", PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/templates/bin/openfl.sh", "/usr/bin/openfl" ], false);
 						ProcessHelper.runCommand ("", "sudo", [ "chmod", "755", "/usr/bin/openfl" ], false);
 						installedCommand = true;
 						
@@ -432,7 +434,7 @@ class PlatformSetup {
 					Sys.println (" a) Manually add an alias called \"openfl\" to run \"haxelib run openfl\"");
 					Sys.println (" b) Run the following commands:");
 					Sys.println ("");
-					Sys.println ("sudo cp \"" + PathHelper.getHaxelib (new Haxelib ("hxtools")) + "/templates/bin/openfl.sh\" /usr/bin/openfl");
+					Sys.println ("sudo cp \"" + PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/templates/bin/openfl.sh\" /usr/bin/openfl");
 					Sys.println ("sudo chmod 755 /usr/bin/openfl");
 					Sys.println ("");
 					
@@ -632,7 +634,7 @@ class PlatformSetup {
 				
 				Lib.println (message);
 				Sys.command ("chmod", [ "755", path ]);
-				ProcessHelper.runCommand ("", path, [], false);
+				ProcessHelper.runCommand ("", "./" + path, [], false);
 				Lib.println ("Done");
 				
 			}
@@ -876,7 +878,7 @@ class PlatformSetup {
 			if (PlatformHelper.hostPlatform != Platform.WINDOWS && FileSystem.exists (Sys.getEnv ("HOME") + "/.android")) {
 				
 				ProcessHelper.runCommand ("", "chmod", [ "-R", "777", "~/.android" ], false);
-				ProcessHelper.runCommand ("", "cp", [ PathHelper.getHaxelib (new Haxelib ("hxtools")) + "/templates/bin/debug.keystore", "~/.android/debug.keystore" ], false);
+				ProcessHelper.runCommand ("", "cp", [ PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/templates/bin/debug.keystore", "~/.android/debug.keystore" ], false);
 				
 			}
 			
@@ -1684,7 +1686,8 @@ class PlatformSetup {
 
 	public static function setupLinux ():Void {
 		// Install using apt-get if available.
-		var hasApt = ProcessHelper.runProcess("", "which", ["apt-get"], true, true, true) != null;
+		var whichAptGet = ProcessHelper.runProcess("", "which", ["apt-get"], true, true, true);
+		var hasApt = whichAptGet != null && whichAptGet != "";
 		if(hasApt) {
 			var parameters = [ "apt-get", "install" ].concat (aptPackages.split (" "));
 			ProcessHelper.runCommand ("", "sudo", parameters, false);
@@ -1692,7 +1695,8 @@ class PlatformSetup {
 		}
 
 		// Install using yum if available.
-		var hasYum = ProcessHelper.runProcess("", "which", ["yum"], true, true, true) != null;
+		var whichYum = ProcessHelper.runProcess("", "which", ["yum"], true, true, true);
+		var hasYum = whichYum != null && whichYum != "";
 		if(hasYum) {
 			var parameters = [ "yum", "install" ].concat (yumPackages.split (" "));
 			ProcessHelper.runCommand ("", "sudo", parameters, false);
