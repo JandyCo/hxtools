@@ -955,6 +955,8 @@ class ProjectXMLParser extends HXProject {
 									ndll.haxelib = haxelib;
 									
 								}
+
+//								merge (includeProject);
 								
 							}
 							
@@ -1458,8 +1460,8 @@ class ProjectXMLParser extends HXProject {
 							}
 							
 							if (element.has.resolve ("linker-flags")) {
-								
-								config.ios.linkerFlags = substitute (element.att.resolve ("linker-flags"));
+                                
+                                config.ios.linkerFlags.push(substitute (element.att.resolve ("linker-flags")));
 								
 							}
 							
