@@ -12,6 +12,7 @@ import helpers.PathHelper;
 import helpers.PlatformHelper;
 import helpers.ProcessHelper;
 import project.AssetType;
+import project.Haxelib;
 import project.HXProject;
 import sys.io.File;
 import sys.FileSystem;
@@ -62,7 +63,8 @@ class WindowsPlatform implements IPlatformTool {
 			
 			if (IconHelper.createWindowsIcon (project.icons, iconPath)) {
 				
-				ProcessHelper.runCommand ("", PathHelper.findTemplate (project.templatePaths, "bin/ReplaceVistaIcon.exe"), [ executablePath, iconPath ], true, true);
+				var templates = [ PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/templates" ].concat (project.templatePaths);
+				ProcessHelper.runCommand ("", PathHelper.findTemplate (templates, "bin/ReplaceVistaIcon.exe"), [ executablePath, iconPath ], true, true);
 				
 			}
 			
@@ -187,18 +189,22 @@ class WindowsPlatform implements IPlatformTool {
 		
 		for (asset in project.assets) {
 			
-			var path = PathHelper.combine (applicationDirectory, asset.targetPath);
+			if (asset.embed != true) {
 			
-			if (asset.type != AssetType.TEMPLATE) {
+				var path = PathHelper.combine (applicationDirectory, asset.targetPath);
+			
+				if (asset.type != AssetType.TEMPLATE) {
 				
-				PathHelper.mkdir (Path.directory (path));
-				FileHelper.copyAssetIfNewer (asset, path);
+					PathHelper.mkdir (Path.directory (path));
+					FileHelper.copyAssetIfNewer (asset, path);
 				
-			} else {
+				} else {
 				
-				PathHelper.mkdir (Path.directory (path));
-				FileHelper.copyAsset (asset, path, context);
+					PathHelper.mkdir (Path.directory (path));
+					FileHelper.copyAsset (asset, path, context);
 				
+				}
+			
 			}
 			
 		}

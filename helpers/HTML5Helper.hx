@@ -4,9 +4,12 @@ package helpers;
 import haxe.io.Path;
 import helpers.LogHelper;
 import helpers.PathHelper;
+import helpers.PlatformHelper;
 import helpers.ProcessHelper;
+import project.Architecture;
 import project.Asset;
 import project.HXProject;
+import project.Platform;
 import sys.FileSystem;
 
 
@@ -28,15 +31,60 @@ class HTML5Helper {
 	}
 	
 	
+	public static function generateWebfonts (project:HXProject, font:Asset):Void {
+		
+		var suffix = switch (PlatformHelper.hostPlatform) {
+			
+			case Platform.WINDOWS: "-windows.exe";
+			case Platform.MAC: "-mac";
+			case Platform.LINUX: "-linux";
+			default: return;
+			
+		}
+		
+		if (suffix == "-linux") {
+			
+			if (PlatformHelper.hostArchitecture == Architecture.X86) {
+				
+				suffix += "32";
+				
+			} else {
+				
+				suffix += "64";
+				
+			}
+			
+		}
+		
+		var webify = PathHelper.findTemplate (project.templatePaths, "bin/webify" + suffix);
+		if (PlatformHelper.hostPlatform != Platform.WINDOWS) {
+			
+			Sys.command ("chmod", [ "+x", webify ]);
+			
+		}
+		
+		if (LogHelper.verbose) {
+			
+			ProcessHelper.runCommand ("", webify, [ FileSystem.fullPath (font.sourcePath) ]);
+			
+		} else {
+			
+			ProcessHelper.runProcess ("", webify, [ FileSystem.fullPath (font.sourcePath) ], true, true, true);
+			
+		}
+		
+	}
+	
+	
 	public static function launch (project:HXProject, path:String, port:Int = 3000):Void {
 		
-		if (project.app.url != "") {
+		if (project.app.url != null && project.app.url != "") {
 			
 			ProcessHelper.openURL (project.app.url);
 			
 		} else {
 			
-			LogHelper.info ("", " - Starting local web server: http://localhost:" + port);
+			LogHelper.info ("", " - \x1b[1mStarting local web server:\x1b[0m http://localhost:" + port);
 			
 			ProcessHelper.openURL ("http://localhost:" + port);
 			ProcessHelper.runProcess (path, "nekotools", [ "server", "-p", port + "" ]);

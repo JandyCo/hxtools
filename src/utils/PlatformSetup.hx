@@ -7,11 +7,13 @@ import haxe.io.Path;
 import haxe.zip.Reader;
 import helpers.BlackBerryHelper;
 import helpers.FileHelper;
+import helpers.LogHelper;
 import helpers.PathHelper;
 import helpers.PlatformHelper;
 import helpers.ProcessHelper;
 import neko.Lib;
 import project.Haxelib;
+import project.HXProject;
 import project.Platform;
 import sys.io.File;
 import sys.io.Process;
@@ -40,9 +42,12 @@ class PlatformSetup {
 	private static var blackBerryWindowsNativeSDKPath = "http://developer.blackberry.com/native/downloads/fetch/installer-bbndk-2.1.0-win32-1032-201209271809-201209280007.exe";
 	private static var blackBerryWindowsWebWorksSDKPath = "https://developer.blackberry.com/html5/downloads/fetch/BB10-WebWorks-SDK_1.0.4.7.exe";
 	private static var codeSourceryWindowsPath = "http://sourcery.mentor.com/public/gnu_toolchain/arm-none-linux-gnueabi/arm-2009q1-203-arm-none-linux-gnueabi.exe";
+	private static var emscriptenSDKURL = "https://github.com/kripken/emscripten/wiki/Emscripten-SDK";
 	private static var javaJDKURL = "http://www.oracle.com/technetwork/java/javase/downloads/jdk6u37-downloads-1859587.html";
 	private static var aptPackages = "ia32-libs-multiarch gcc-multilib g++-multilib";
+	private static var ubuntuSaucyPackages = "gcc-multilib g++-multilib libxext-dev";
 	private static var yumPackages = "gcc gcc-c++";
+	private static var tizenSDKURL = "https://developer.tizen.org/downloads/tizen-sdk";
 	private static var webOSLinuxX64NovacomPath = "http://cdn.downloads.palm.com/sdkdownloads/3.0.4.669/sdkBinaries/palm-novacom_1.0.80_amd64.deb";
 	private static var webOSLinuxX86NovacomPath = "http://cdn.downloads.palm.com/sdkdownloads/3.0.4.669/sdkBinaries/palm-novacom_1.0.80_i386.deb";
 	private static var webOSLinuxSDKPath = "http://cdn.downloads.palm.com/sdkdownloads/3.0.5.676/sdkBinaries/palm-sdk_3.0.5-svn528736-pho676_i386.deb";
@@ -55,6 +60,8 @@ class PlatformSetup {
 	private static var nme:String;
 	private static var triedSudo:Bool = false;
 	private static var userDefines:Map<String, Dynamic>;
+	private static var targetFlags:Map<String, Dynamic>;
+	private static var setupHaxelibs = new Map<String, Bool> ();
 	
    static inline function readLine()
    {
@@ -65,7 +72,7 @@ class PlatformSetup {
 		
 		while (true) {
 			
-			Lib.print (question + " [y/n/a] ? ");
+			LogHelper.print ("\x1b[1m" + question + "\x1b[0m \x1b[3;37m[y/n/a]\x1b[0m ? ");
 			
 			switch (readLine ()) {
 				case "n": return No;
@@ -345,7 +352,7 @@ class PlatformSetup {
 				
 			}
 			
-			value = unescapePath (param (description + " [" + value + "]"));
+			value = unescapePath (param ("\x1b[1m" + description + "\x1b[0m \x1b[37;3m[" + value + "]\x1b[0m"));
 			
 			if (value != "") {
 				
@@ -364,108 +371,17 @@ class PlatformSetup {
 	}
 	
 	
-	public static function installNME ():Void {
+	public static function installHaxelib (haxelib:Haxelib):Void {
 		
-		var haxePath = Sys.getEnv ("HAXEPATH");
+		var name = haxelib.name;
 		
-		if (!userDefines.exists ("nme")) {
+		if (haxelib.version != null && haxelib.version != "") {
 			
-			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "openfl-native" ]);
-			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "openfl-samples" ]);
-			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "openfl-html5-dom" ]);
-			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "hxlibc" ]);
-			
-		} else {
-			
-			ProcessHelper.runCommand (haxePath, "haxelib", [ "install", "hxcpp" ]);
+			name += ":" + haxelib.version;
 			
 		}
 		
-		if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
-			
-			if (haxePath == null || haxePath == "") {
-				
-				haxePath = "C:\\HaxeToolkit\\haxe\\";
-				
-			}
-			
-			if (!userDefines.exists ("nme")) {
-				
-				File.copy (PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "\\templates\\\\bin\\openfl.bat", haxePath + "\\openfl.bat");
-				
-			} else {
-				
-				File.copy (PathHelper.getHaxelib (new Haxelib ("nme")) + "\\tools\\command-line\\bin\\nme.bat", haxePath + "\\nme.bat");
-				
-			}
-			
-		} else {
-			
-			if (haxePath == null || haxePath == "") {
-				
-				haxePath = "/usr/lib/haxe";
-				
-			}
-			
-			
-			var installedCommand = false;
-			
-			if (!userDefines.exists ("nme")) {
-				
-				var answer = ask ("Do you want to install the \"openfl\" command?");
-				
-				if (answer == Yes || answer == Always) {
-					
-					try {
-						
-						ProcessHelper.runCommand ("", "sudo", [ "cp", "-f", PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/templates/bin/openfl.sh", "/usr/bin/openfl" ], false);
-						ProcessHelper.runCommand ("", "sudo", [ "chmod", "755", "/usr/bin/openfl" ], false);
-						installedCommand = true;
-						
-					} catch (e:Dynamic) {}
-					
-				}
-				
-				if (!installedCommand) {
-					
-					Sys.println ("");
-					Sys.println ("To finish setup, we recommend you either...");
-					Sys.println ("");
-					Sys.println (" a) Manually add an alias called \"openfl\" to run \"haxelib run openfl\"");
-					Sys.println (" b) Run the following commands:");
-					Sys.println ("");
-					Sys.println ("sudo cp \"" + PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/templates/bin/openfl.sh\" /usr/bin/openfl");
-					Sys.println ("sudo chmod 755 /usr/bin/openfl");
-					Sys.println ("");
-					
-				}
-				
-			} else {
-				
-				var answer = ask ("Do you want to install the \"nme\" command?");
-				
-				if (answer == Yes || answer == Always) {
-					
-					try {
-						
-						ProcessHelper.runCommand ("", "sudo", [ "cp", "-f", PathHelper.getHaxelib (new Haxelib ("nme")) + "/templates/bin/nme.sh", "/usr/bin/nme" ], false);
-						ProcessHelper.runCommand ("", "sudo", [ "chmod", "755", "/usr/bin/nme" ], false);
-						
-					} catch (e:Dynamic) {}
-					
-				}
-				
-			}
-			
-		}
-		
-		if (PlatformHelper.hostPlatform == Platform.MAC) {
-			
-			var defines = getDefines ();
-			defines.set ("MAC_USE_CURRENT_SDK", "1");
-			writeConfig (defines.get ("HXCPP_CONFIG"), defines);
-			
-		}
+		ProcessHelper.runCommand (Sys.getEnv ("HAXEPATH"), "haxelib", [ "install", name ]);
 		
 	}
 	
@@ -506,7 +422,7 @@ class PlatformSetup {
 	
 	private static function param (name:String, ?passwd:Bool):String {
 		
-		Lib.print (name + ": ");
+		LogHelper.print (name + ": ");
 		
 		if (passwd) {
 			var s = new StringBuf ();
@@ -532,9 +448,10 @@ class PlatformSetup {
 	}
 	
 	
-	public static function run (target:String = "", userDefines:Map<String, Dynamic> = null) {
+	public static function run (target:String = "", userDefines:Map<String, Dynamic> = null, targetFlags:Map<String, Dynamic> = null) {
 		
 		PlatformSetup.userDefines = userDefines;
+		PlatformSetup.targetFlags = targetFlags;
 		
 		try {
 			
@@ -551,6 +468,10 @@ class PlatformSetup {
 				case "blackberry":
 					
 					setupBlackBerry ();
+				
+				case "emscripten":
+					
+					setupEmscripten ();
 				
 				//case "html5":
 					
@@ -580,6 +501,10 @@ class PlatformSetup {
 						
 					}
 				
+				case "tizen":
+					
+					setupTizen ();
+				
 				case "webos":
 					
 					setupWebOS ();
@@ -592,14 +517,13 @@ class PlatformSetup {
 						
 					}
 				
-				case "":
+				case "lime", "":
 					
-					installNME ();
+					setupLime ();
 				
 				default:
 					
-					Lib.println ("No setup is required for " + target + ", or it is not a valid target");
-					return;
+					setupHaxelib (new Haxelib (target));
 				
 			}
 			
@@ -634,7 +558,17 @@ class PlatformSetup {
 				
 				Lib.println (message);
 				Sys.command ("chmod", [ "755", path ]);
-				ProcessHelper.runCommand ("", "./" + path, [], false);
+				
+				if (path.substr (0, 1) == "/") {
+					
+					ProcessHelper.runCommand ("", path, [], false);
+					
+				} else {
+					
+					ProcessHelper.runCommand ("", "./" + path, [], false);
+					
+				}
+				
 				Lib.println ("Done");
 				
 			}
@@ -1566,6 +1500,93 @@ class PlatformSetup {
 	}
 	
 	
+	public static function setupEmscripten ():Void {
+		
+		var answer = ask ("Download and install Emscripten?");
+		
+		if (answer == Yes || answer == Always) {
+			
+			Lib.println ("You may find instructions for installing Emscripten on the website.");
+			var secondAnswer = ask ("Would you like to open the wiki page now?");
+			
+			if (secondAnswer != No) {
+				
+				ProcessHelper.openURL (emscriptenSDKURL);
+				
+			}
+			
+		}
+		
+		var defines = getDefines ([ "EMSCRIPTEN_SDK" ], [ "Path to Emscripten SDK" ]);
+		
+		if (defines != null) {
+			
+			writeConfig (defines.get ("HXCPP_CONFIG"), defines);
+			
+		}
+		
+	}
+	
+	
+	public static function setupHaxelib (haxelib:Haxelib, dependency:Bool = false):Void {
+		
+		setupHaxelibs.set (haxelib.name, true);
+		
+		var defines = new Map <String, Dynamic> ();
+		defines.set ("setup", 1);
+		
+		var basePath = ProcessHelper.runProcess (Sys.getEnv ("HAXEPATH"), "haxelib", [ "config" ]);
+		if (basePath != null) {
+			
+			basePath = StringTools.trim (basePath.split ("\n")[0]);
+			
+		}
+		var lib = PathHelper.getHaxelib (haxelib, false, true);
+		if (lib != null && !StringTools.startsWith (PathHelper.standardize (lib), PathHelper.standardize (basePath))) {
+			
+			defines.set ("dev", 1);
+			
+		}
+		
+		var project = HXProject.fromHaxelib (haxelib, defines, true);
+		
+		if (project != null && project.haxelibs.length > 0) {
+			
+			for (lib in project.haxelibs) {
+				
+				if (setupHaxelibs.exists (lib.name)) continue;
+				
+				var path = PathHelper.getHaxelib (lib, false, true);
+				
+				if (path == null || path == "" || (lib.version != null && lib.version != "")) {
+					
+					if (defines.exists ("dev")) {
+						
+						LogHelper.error ("Could not find dependency \"" + lib.name + "\" for library \"" + haxelib.name + "\"");
+						
+					}
+					
+					installHaxelib (lib);
+					
+				} else /*if (userDefines.exists ("upgrade"))*/ {
+					
+					updateHaxelib (lib);
+					
+				}
+				
+				setupHaxelib (lib, true);
+				
+			}
+			
+		} else if (!dependency) {
+			
+			LogHelper.warn ("No setup is required for " + haxelib.name + ", or it is not a valid target");
+			
+		}
+		
+	}
+	
+	
 	public static function setupHTML5 ():Void {
 		
 		var setApacheCordova = false;
@@ -1682,6 +1703,82 @@ class PlatformSetup {
 		ProcessHelper.runCommand ("", "haxelib", [ "install", "cordova" ], true, true);
 		
 	}
+	
+	
+	public static function setupLime ():Void {
+		
+		setupHaxelib (new Haxelib ("lime"));
+		
+		var haxePath = Sys.getEnv ("HAXEPATH");
+		
+		if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
+			
+			if (haxePath == null || haxePath == "") {
+				
+				haxePath = "C:\\HaxeToolkit\\haxe\\";
+				
+			}
+			
+			File.copy (PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "\\templates\\\\bin\\lime.bat", haxePath + "\\lime.bat");
+			
+		} else {
+			
+			if (haxePath == null || haxePath == "") {
+				
+				haxePath = "/usr/lib/haxe";
+				
+			}
+			
+			var installedCommand = false;
+			var answer = Yes;
+			
+			if (targetFlags.exists ("y")) {
+				
+				Sys.println ("Do you want to install the \"lime\" command? [y/n/a] y");
+				
+			} else {
+				
+				answer = ask ("Do you want to install the \"lime\" command?");
+				
+			}
+			
+			if (answer == Yes || answer == Always) {
+				
+				try {
+					
+					ProcessHelper.runCommand ("", "sudo", [ "cp", "-f", PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/templates/bin/lime.sh", "/usr/bin/lime" ], false);
+					ProcessHelper.runCommand ("", "sudo", [ "chmod", "755", "/usr/bin/lime" ], false);
+					installedCommand = true;
+					
+				} catch (e:Dynamic) {}
+				
+			}
+			
+			if (!installedCommand) {
+				
+				Sys.println ("");
+				Sys.println ("To finish setup, we recommend you either...");
+				Sys.println ("");
+				Sys.println (" a) Manually add an alias called \"lime\" to run \"haxelib run lime\"");
+				Sys.println (" b) Run the following commands:");
+				Sys.println ("");
+				Sys.println ("sudo cp \"" + PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/templates/bin/lime.sh\" /usr/bin/lime");
+				Sys.println ("sudo chmod 755 /usr/bin/lime");
+				Sys.println ("");
+				
+			}
+			
+		}
+		
+		if (PlatformHelper.hostPlatform == Platform.MAC) {
+			
+			var defines = getDefines ();
+			defines.set ("MAC_USE_CURRENT_SDK", "1");
+			writeConfig (defines.get ("HXCPP_CONFIG"), defines);
+			
+		}
+		
+	}
 
 
 	public static function setupLinux ():Void {
@@ -1689,7 +1786,18 @@ class PlatformSetup {
 		var whichAptGet = ProcessHelper.runProcess("", "which", ["apt-get"], true, true, true);
 		var hasApt = whichAptGet != null && whichAptGet != "";
 		if(hasApt) {
-			var parameters = [ "apt-get", "install" ].concat (aptPackages.split (" "));
+
+			// check if this is ubuntu saucy 64bit, which uses different packages.
+			var lsbId = ProcessHelper.runProcess("", "lsb_release", ["-si"], true, true, true);
+			var lsbRelease = ProcessHelper.runProcess("", "lsb_release", ["-sr"], true, true, true);
+			var arch = ProcessHelper.runProcess("", "uname", ["-m"], true, true, true);
+			var isSaucy = lsbId == "Ubuntu\n" &&  lsbRelease == "13.10\n" && arch == "x86_64\n";
+
+			var packages = isSaucy ? ubuntuSaucyPackages : aptPackages;
+
+			trace(packages);
+
+			var parameters = [ "apt-get", "install" ].concat (packages.split (" "));
 			ProcessHelper.runCommand ("", "sudo", parameters, false);
 			return;
 		}
@@ -1723,13 +1831,41 @@ class PlatformSetup {
 			
 			if (secondAnswer != No) {
 				
-				ProcessHelper.runCommand ("", "open", [ appleXcodeURL ], false);
+				ProcessHelper.openURL (appleXcodeURL);
 				
 			}
 			
 		}
 		
-	}	
+	}
+	
+	
+	public static function setupTizen ():Void {
+		
+		var answer = ask ("Download and install the Tizen SDK?");
+		
+		if (answer == Yes || answer == Always) {
+			
+			Lib.println ("You may download the Tizen SDK from the Tizen Developer portal.");
+			var secondAnswer = ask ("Would you like to open the download page?");
+			
+			if (secondAnswer != No) {
+				
+				ProcessHelper.openURL (tizenSDKURL);
+				
+			}
+			
+		}
+		
+		var defines = getDefines ([ "TIZEN_SDK" ], [ "Path to Tizen SDK" ]);
+		
+		if (defines != null) {
+			
+			writeConfig (defines.get ("HXCPP_CONFIG"), defines);
+			
+		}
+		
+	}
 	
 	
 	public static function setupWebOS ():Void {
@@ -1890,6 +2026,37 @@ class PlatformSetup {
 	}
 	
 	
+	public static function updateHaxelib (haxelib:Haxelib):Void {
+		
+		var basePath = ProcessHelper.runProcess (Sys.getEnv ("HAXEPATH"), "haxelib", [ "config" ]);
+		if (basePath != null) {
+			
+			basePath = StringTools.trim (basePath.split ("\n")[0]);
+			
+		}
+		
+		var lib = PathHelper.getHaxelib (haxelib, false, true);
+		
+		if (StringTools.startsWith (PathHelper.standardize (lib), PathHelper.standardize (basePath))) {
+			
+			ProcessHelper.runCommand (Sys.getEnv ("HAXEPATH"), "haxelib", [ "update", haxelib.name ]);
+			
+		} else {
+			
+			var git = PathHelper.combine (lib, ".git");
+			
+			if (FileSystem.exists (git)) {
+				
+				LogHelper.info ("\x1b[32;1mUpdating \"" + haxelib.name + "\"\x1b[0m");
+				ProcessHelper.runCommand (lib, "git", [ "pull" ]);
+				
+			}
+			
+		}
+		
+	}
+	
+	
 	private static function writeConfig (path:String, defines:Map <String, String>):Void {
 		
 		var newContent = "";
@@ -1926,7 +2093,11 @@ class PlatformSetup {
 			
 			}
 			
+			#if (haxe_ver > 3.102)
+			var content = bytes.getString (0, bytes.length);
+			#else
 			var content = bytes.readString (0, bytes.length);
+			#end
 			
 			var startIndex = content.indexOf ("<section id=\"vars\">");
 			var endIndex = content.indexOf ("</section>", startIndex);

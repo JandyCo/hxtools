@@ -35,13 +35,13 @@ class FlashHelper {
 		var flatName = inAsset.flatName;
 		var ext = inAsset.format;
 		
-		if (!embed) {
+		if (embed == false) {
 			
 			return false;
 			
 		}
 		
-		LogHelper.info ("", " - Embedding asset: [" + type + "] " + name);
+		LogHelper.info ("", " - \x1b[1mEmbedding asset:\x1b[0m \x1b[3;37m(" + type + ")\x1b[0m " + name);
 		
 		var cid = nextAssetID ();
 		
@@ -510,11 +510,11 @@ class FlashHelper {
 				}
 				
 			} else {
-				trace("Embedding assets failed! We encountered an error. Does '"+targetPath+"' exist?");
+				trace ("Embedding assets failed! We encountered an error. Does '"+targetPath+"' exist?");
 			}
 		} catch (e:Dynamic) {
 			
-			trace("Embedding assets failed! We encountered an error accessing '" + targetPath + "': " + e);
+			trace ("Embedding assets failed! We encountered an error accessing '" + targetPath + "': " + e);
 			
 		}
 		

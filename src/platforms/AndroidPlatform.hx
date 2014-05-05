@@ -50,6 +50,8 @@ class AndroidPlatform implements IPlatformTool {
 				
 			}
 			
+			armv7 = armv5; // Must use armeabi folder if only one architecture exists
+			
 		}
 		
 		if (ArrayHelper.containsValue (project.architectures, Architecture.ARMV7)) {
@@ -112,7 +114,7 @@ class AndroidPlatform implements IPlatformTool {
 			
 		}
 		
-		deviceID = AndroidHelper.install (project, FileSystem.fullPath (project.app.path) + "/android/bin/bin/" + project.app.file + "-" + build + ".apk");
+		deviceID = AndroidHelper.install (project, FileSystem.fullPath (project.app.path) + "/android/bin/bin/" + project.app.file + "-" + build + ".apk", deviceID);
 		
    }
 	
@@ -121,12 +123,17 @@ class AndroidPlatform implements IPlatformTool {
 		
 		if (!project.environment.exists ("ANDROID_SETUP")) {
 			
-			var alias = !project.haxedefs.exists ("nme") ? "openfl" : "nme";
-			LogHelper.error ("You need to run \"" + alias + " setup android\" before you can use the Android target");
+			LogHelper.error ("You need to run \"lime setup android\" before you can use the Android target");
 			
 		}
 		
 		AndroidHelper.initialize (project);
+		
+		if (deviceID == null && project.targetFlags.exists ("device")) {
+			
+			deviceID = project.targetFlags.get ("device") + ":5555";
+			
+		}
 		
 	}
 	
@@ -275,7 +282,15 @@ class AndroidPlatform implements IPlatformTool {
 			
 			if (armv7) {
 				
-				FileHelper.copyLibrary (ndll, "Android", "lib", "-v7.so", destination + "/libs/armeabi-v7a", project.debug, ".so");
+				if (armv5) {
+					
+					FileHelper.copyLibrary (ndll, "Android", "lib", "-v7.so", destination + "/libs/armeabi-v7a", project.debug, ".so");
+					
+				} else {
+					
+					FileHelper.copyLibrary (ndll, "Android", "lib", "-v7.so", destination + "/libs/armeabi", project.debug, ".so");
+					
+				}
 				
 			}
 			

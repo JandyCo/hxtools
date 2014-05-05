@@ -31,6 +31,7 @@ class HXProject {
 	public var command:String;
 	public var config:PlatformConfig;
 	public var debug:Bool;
+	public var defines:Map <String, Dynamic>;
 	public var dependencies:Array <Dependency>;
 	public var environment:Map <String, String>;
 	public var haxedefs:Map <String, Dynamic>;
@@ -44,13 +45,14 @@ class HXProject {
 	public var meta:MetaData;
 	public var ndlls:Array <NDLL>;
 	public var platformType:PlatformType;
+	public var samplePaths:Array <String>;
 	public var sources:Array <String>;
 	public var splashScreens:Array <SplashScreen>;
 	public var target:Platform;
 	public var targetFlags:Map <String, String>;
 	public var templateContext (get_templateContext, null):Dynamic;
 	public var templatePaths:Array <String>;
-	public var window:Window;
+	public var window:Array <Window>;
 	
 	private var defaultApp:ApplicationData;
 	private var defaultMeta:MetaData;
@@ -100,9 +102,9 @@ class HXProject {
 		targetFlags = StringMapHelper.copy (_targetFlags);
 		templatePaths = _templatePaths.copy ();
 		
-		defaultMeta = { title: "MyApplication", description: "", packageName: "com.example.myapp", version: "1.0.0", company: "Example, Inc.", buildNumber: "1", companyID: "" }
+		defaultMeta = { title: "MyApplication", description: "", packageName: "com.example.myapp", version: "1.0.0", company: "Example, Inc.", companyURL: "", buildNumber: "1", companyID: "" }
 		defaultApp = { main: "Main", file: "MyApplication", path: "bin", preloader: "NMEPreloader", swfVersion: 11.2, url: "" }
-		defaultWindow = { width: 800, height: 600, parameters: "{}", background: 0xFFFFFF, fps: 30, hardware: true, resizable: true, borderless: false, orientation: Orientation.AUTO, vsync: false, fullscreen: false, antialiasing: 0, allowShaders: true, requireShaders: false, depthBuffer: false, stencilBuffer: false }
+		defaultWindow = { width: 800, height: 600, parameters: "{}", background: 0xFFFFFF, fps: 30, hardware: true, display: 0, resizable: true, borderless: false, orientation: Orientation.AUTO, vsync: false, fullscreen: false, antialiasing: 0, allowShaders: true, requireShaders: false, depthBuffer: false, stencilBuffer: false }
 		
 		switch (target) {
 			
@@ -116,6 +118,17 @@ class HXProject {
 				platformType = PlatformType.WEB;
 				architectures = [];
 				
+				defaultWindow.width = 0;
+				defaultWindow.height = 0;
+				defaultWindow.fps = 0;
+			
+			case FIREFOXOS:
+				
+				platformType = PlatformType.MOBILE;
+				architectures = [];
+				
+				defaultWindow.width = 0;
+				defaultWindow.height = 0;
 				defaultWindow.fps = 0;
 				
 			case ANDROID, BLACKBERRY, IOS, TIZEN, WEBOS:
@@ -123,6 +136,10 @@ class HXProject {
 				platformType = PlatformType.MOBILE;
 				
 				if (target == Platform.IOS) {
+					
+					architectures = [ Architecture.ARMV7 ];
+					
+				} else if (target == Platform.ANDROID) {
 					
 					architectures = [ Architecture.ARMV7 ];
 					
@@ -153,15 +170,11 @@ class HXProject {
 			
 		}
 		
-		meta = {};
-		app = {};
-		window = {};
-		
-		ObjectHelper.copyFields (defaultMeta, meta);
-		ObjectHelper.copyFields (defaultApp, app);
-		ObjectHelper.copyFields (defaultWindow, window);
-		
+		meta = ObjectHelper.copyFields (defaultMeta, {});
+		app = ObjectHelper.copyFields (defaultApp, {});
+		window = [ ObjectHelper.copyFields (defaultWindow, {}) ];
 		assets = new Array <Asset> ();
+		defines = new Map <String, Dynamic> ();
 		dependencies = new Array <Dependency> ();
 		environment = Sys.environment ();
 		haxedefs = new Map <String, Dynamic> ();
@@ -173,6 +186,7 @@ class HXProject {
 		libraryHandlers = new Map <String, String> ();
 		ndlls = new Array <NDLL> ();
 		sources = new Array <String> ();
+		samplePaths = new Array <String> ();
 		splashScreens = new Array <SplashScreen> ();
 		
 	}
@@ -201,6 +215,12 @@ class HXProject {
 		project.command = command;
 		project.config = config.clone ();
 		project.debug = debug;
+		
+		for (key in defines.keys ()) {
+			
+			project.defines.set (key, defines.get (key));
+			
+		}
 		
 		for (dependency in dependencies) {
 			
@@ -257,6 +277,7 @@ class HXProject {
 		}
 		
 		project.platformType = platformType;
+		project.samplePaths = samplePaths.copy ();
 		project.sources = sources.copy ();
 		
 		for (splashScreen in splashScreens) {
@@ -275,7 +296,11 @@ class HXProject {
 		
 		project.templatePaths = templatePaths.copy ();
 		
-		ObjectHelper.copyFields (window, project.window);
+		for (i in 0...window.length) {
+			
+			project.window[i] = (ObjectHelper.copyFields (window[i], {}));
+			
+		}
 		
 		return project;
 		
@@ -380,6 +405,47 @@ class HXProject {
 		}
 		
 		return project;
+		
+	}
+	
+	
+	public static function fromHaxelib (haxelib:Haxelib, userDefines:Map <String, Dynamic> = null, clearCache:Bool = false):HXProject {
+		
+		if (haxelib.name == null || haxelib.name == "") {
+			
+			return null;
+			
+		}
+		
+		var path = PathHelper.getHaxelib (haxelib, false, clearCache);
+		
+		if (path == null || path == "") {
+			
+			return null;
+			
+		}
+		
+		var files = [ "include.lime", "include.nmml", "include.xml" ];
+		var found = false;
+		
+		for (file in files) {
+			
+			if (!found && FileSystem.exists (PathHelper.combine (path, file))) {
+				
+				found = true;
+				path = PathHelper.combine (path, file);
+				
+			}
+			
+		}
+		
+		if (found) {
+			
+			return new ProjectXMLParser (path, userDefines);
+			
+		}
+		
+		return null;
 		
 	}
 	
@@ -502,8 +568,22 @@ class HXProject {
 			
 			ObjectHelper.copyUniqueFields (project.meta, meta, project.defaultMeta);
 			ObjectHelper.copyUniqueFields (project.app, app, project.defaultApp);
-			ObjectHelper.copyUniqueFields (project.window, window, project.defaultWindow);
 			
+			for (i in 0...project.window.length) {
+				
+				if (i < window.length) {
+					
+					ObjectHelper.copyUniqueFields (project.window[i], window[i], project.defaultWindow);
+					
+				} else {
+					
+					window.push (ObjectHelper.copyFields (project.window[i], {}));
+					
+				}
+				
+			}
+			
+			StringMapHelper.copyUniqueKeys (project.defines, defines);
 			StringMapHelper.copyUniqueKeys (project.environment, environment);
 			StringMapHelper.copyUniqueKeys (project.haxedefs, haxedefs);
 			StringMapHelper.copyUniqueKeys (project.libraryHandlers, libraryHandlers);
@@ -521,16 +601,17 @@ class HXProject {
 			config.merge (project.config);
 			
 			assets = ArrayHelper.concatUnique (assets, project.assets);
-			dependencies = ArrayHelper.concatUnique (dependencies, project.dependencies);
+			dependencies = ArrayHelper.concatUnique (dependencies, project.dependencies, true);
 			haxeflags = ArrayHelper.concatUnique (haxeflags, project.haxeflags);
-			haxelibs = ArrayHelper.concatUnique (haxelibs, project.haxelibs);
+			haxelibs = ArrayHelper.concatUnique (haxelibs, project.haxelibs, true, "name");
 			icons = ArrayHelper.concatUnique (icons, project.icons);
-			javaPaths = ArrayHelper.concatUnique (javaPaths, project.javaPaths);
-			libraries = ArrayHelper.concatUnique (libraries, project.libraries);
+			javaPaths = ArrayHelper.concatUnique (javaPaths, project.javaPaths, true);
+			libraries = ArrayHelper.concatUnique (libraries, project.libraries, true);
 			ndlls = ArrayHelper.concatUnique (ndlls, project.ndlls);
-			sources = ArrayHelper.concatUnique (sources, project.sources);
+			samplePaths = ArrayHelper.concatUnique (samplePaths, project.samplePaths, true);
+			sources = ArrayHelper.concatUnique (sources, project.sources, true);
 			splashScreens = ArrayHelper.concatUnique (splashScreens, project.splashScreens);
-			templatePaths = ArrayHelper.concatUnique (templatePaths, project.templatePaths);
+			templatePaths = ArrayHelper.concatUnique (templatePaths, project.templatePaths, true);
 			
 		}
 		
@@ -558,29 +639,17 @@ class HXProject {
 		
 		for (haxelib in project.haxelibs) {
 					
-			if (haxelib.name == "nme" && userDefines.exists ("openfl")) {
+			/*if (haxelib.name == "nme" && userDefines.exists ("openfl")) {
 				
 				haxelib.name = "openfl-nme-compatibility";
 				haxelib.version = "";
 				
-			}
+			}*/
 			
 			var path = PathHelper.getHaxelib (haxelib);
-			var includePath = "";
+			var includeProject = HXProject.fromHaxelib (haxelib, userDefines);
 			
-			if (FileSystem.exists (path + "/include.nmml")) {
-				
-				includePath = path + "/include.nmml";
-				
-			} else if (FileSystem.exists (path + "/include.xml")) {
-				
-				includePath = path + "/include.xml";
-				
-			}
-			
-			if (includePath != "") {
-				
-				var includeProject = new ProjectXMLParser (includePath, userDefines);
+			if (includeProject != null) {
 				
 				for (ndll in includeProject.ndlls) {
 					
@@ -654,11 +723,16 @@ class HXProject {
 		
 		if (app == null) app = { };
 		if (meta == null) meta = { };
-		if (window == null) window = { };
+		if (window == null) window = [ { } ];
 		
 		ObjectHelper.copyMissingFields (defaultApp, app);
 		ObjectHelper.copyMissingFields (defaultMeta, meta);
-		ObjectHelper.copyMissingFields (defaultWindow, window);
+		
+		for (item in window) {
+			
+			ObjectHelper.copyMissingFields (defaultWindow, item);
+			
+		}
 		
 		config.populate ();
 		
@@ -685,9 +759,42 @@ class HXProject {
 		
 		context.APP_PACKAGE = context.META_PACKAGE = meta.packageName;
 		
-		for (field in Reflect.fields (window)) {
+		for (field in Reflect.fields (window[0])) {
 			
-			Reflect.setField (context, "WIN_" + StringHelper.formatUppercaseVariable (field), Reflect.field (window, field));
+			Reflect.setField (context, "WIN_" + StringHelper.formatUppercaseVariable (field), Reflect.field (window[0], field));
+			Reflect.setField (context, "WINDOW_" + StringHelper.formatUppercaseVariable (field), Reflect.field (window[0], field));
+			
+		}
+		
+		if (window[0].orientation == Orientation.LANDSCAPE || window[0].orientation == Orientation.PORTRAIT) {
+			
+			context.WIN_ORIENTATION = Std.string (window[0].orientation).toLowerCase ();
+			context.WINDOW_ORIENTATION = Std.string (window[0].orientation).toLowerCase ();
+			
+		} else {
+			
+			context.WIN_ORIENTATION = "";
+			context.WINDOW_ORIENTATION = "";
+			
+		}
+		
+		for (i in 0...window.length) {
+			
+			for (field in Reflect.fields (window[i])) {
+				
+				Reflect.setField (context, "WINDOW_" + StringHelper.formatUppercaseVariable (field) + "_" + i, Reflect.field (window[i], field));
+				
+			}
+			
+			if (window[i].orientation == Orientation.LANDSCAPE || window[i].orientation == Orientation.PORTRAIT) {
+				
+				Reflect.setField (context, "WINDOW_ORIENTATION_" + i, Std.string (window[i].orientation).toLowerCase ());
+				
+			} else {
+				
+				Reflect.setField (context, "WINDOW_ORIENTATION_" + i, "");
+				
+			}
 			
 		}
 		
@@ -709,23 +816,19 @@ class HXProject {
 				
 				var embeddedAsset:Dynamic = { };
 				ObjectHelper.copyFields (asset, embeddedAsset);
+				
+				if (asset.embed == null) {
+					
+					embeddedAsset.embed = (platformType == PlatformType.WEB || target == Platform.FIREFOXOS);
+					
+				}
+				
 				embeddedAsset.type = Std.string (asset.type).toLowerCase ();
 				context.assets.push (embeddedAsset);
 				
 			}
 			
 		}
-		
-		/*context.libraries = new Array <Dynamic> ();
-		
-		for (library in libraries) {
-			
-			var libraryData:Dynamic = { };
-			ObjectHelper.copyFields (library, libraryData);
-			libraryData.type = Std.string (library.type).toLowerCase ();
-			context.libraries.push (libraryData);
-			
-		}*/
 		
 		Reflect.setField (context, "ndlls", ndlls);
 		//Reflect.setField (context, "sslCaCert", sslCaCert);
@@ -747,11 +850,33 @@ class HXProject {
 			
 			Reflect.setField (context, "LIB_" + haxelib.name.toUpperCase (), true);
 			
+			if (name == "nme") {
+				
+				context.EMBED_ASSETS = false;
+				
+			}
+			
 		}
 		
 		for (source in sources) {
 			
 			compilerFlags.push ("-cp " + source);
+			
+		}
+		
+		for (key in defines.keys ()) {
+			
+			var value = defines.get (key);
+			
+			if (value == null || value == "") {
+				
+				Reflect.setField (context, "SET_" + key.toUpperCase (), true);
+				
+			} else {
+				
+				Reflect.setField (context, "SET_" + key.toUpperCase (), value);
+				
+			}
 			
 		}
 		
@@ -824,25 +949,12 @@ class HXProject {
 		for (field in Reflect.fields (context)) {
 			
 			//Sys.println ("context." + field + " = " + Reflect.field (context, field));
+			
 		}
 		
 		context.DEBUG = debug;
 		context.SWF_VERSION = app.swfVersion;
 		context.PRELOADER_NAME = app.preloader;
-		context.WIN_BACKGROUND = window.background;
-		context.WIN_FULLSCREEN = window.fullscreen;
-		context.WIN_ORIENTATION = "";
-		
-		if (window.orientation == Orientation.LANDSCAPE || window.orientation == Orientation.PORTRAIT) {
-			
-			context.WIN_ORIENTATION = Std.string (window.orientation).toLowerCase ();
-			
-		}
-		
-		context.WIN_ALLOW_SHADERS = window.allowShaders;
-		context.WIN_REQUIRE_SHADERS = window.requireShaders;
-		context.WIN_DEPTH_BUFFER = window.depthBuffer;
-		context.WIN_STENCIL_BUFFER = window.stencilBuffer;
 		
 		if (certificate != null) {
 			

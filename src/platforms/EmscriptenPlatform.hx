@@ -5,6 +5,7 @@ import flash.utils.ByteArray;
 import flash.utils.CompressionAlgorithm;
 import haxe.io.Path;
 import haxe.Template;
+import helpers.AssetHelper;
 import helpers.CPPHelper;
 import helpers.FileHelper;
 import helpers.HTML5Helper;
@@ -32,6 +33,14 @@ class EmscriptenPlatform implements IPlatformTool {
 		
 		ProcessHelper.runCommand ("", "haxe", [ hxml, "-D", "emscripten", "-D", "webgl" ] );
 		CPPHelper.compile (project, outputDirectory + "/obj", [ "-Demscripten", "-Dwebgl" ]);
+		
+		if (project.environment.exists ("EMSCRIPTEN_SDK")) {
+			
+			project.path (project.environment.get ("EMSCRIPTEN_SDK"));
+			
+		}
+		
+		Sys.putEnv ("EMCC_LLVM_TARGET", "i386-pc-linux-gnu");
 		
 		ProcessHelper.runCommand ("", "emcc", [ outputDirectory + "/obj/Main.cpp", "-o", outputDirectory + "/obj/Main.o" ], true, false, true);
 		
@@ -67,6 +76,8 @@ class EmscriptenPlatform implements IPlatformTool {
 			
 			args.push ("-s");
 			args.push ("DISABLE_EXCEPTION_CACHING=0");
+			//args.push ("-s");
+			//args.push ("OUTLINING_LIMIT=70000");
 			
 		} else {
 			
@@ -187,26 +198,18 @@ class EmscriptenPlatform implements IPlatformTool {
 	
 	
 	private function initialize (project:HXProject):Void {
-		
+				
 		outputDirectory = project.app.path + "/emscripten";
 		outputFile = outputDirectory + "/bin/" + project.app.file + ".js";
 		
 	}
 	
 	
-	public function run (project:HXProject, arguments:Array < String > ):Void {
+	public function run (project:HXProject, arguments:Array <String>):Void {
 		
 		initialize (project);
 		
-		if (project.app.url != "") {
-			
-			ProcessHelper.openURL (project.app.url);
-			
-		} else {
-			
-			ProcessHelper.openFile (project.app.path + "/emscripten/bin", "index.html");
-			
-		}
+		HTML5Helper.launch (project, project.app.path + "/emscripten/bin");
 		
 	}
 	
@@ -244,7 +247,7 @@ class EmscriptenPlatform implements IPlatformTool {
 		
 		var context = project.templateContext;
 		
-		context.WIN_FLASHBACKGROUND = StringTools.hex (project.window.background, 6);
+		context.WIN_FLASHBACKGROUND = StringTools.hex (project.window[0].background, 6);
 		context.OUTPUT_DIR = outputDirectory;
 		context.OUTPUT_FILE = outputFile;
 		context.CPP_DIR = project.app.path + "/emscripten/obj";
@@ -284,6 +287,8 @@ class EmscriptenPlatform implements IPlatformTool {
 			}
 			
 		}
+		
+		AssetHelper.createManifest (project, PathHelper.combine (outputDirectory + "/obj/assets", "manifest"));
 		
 	}
 	

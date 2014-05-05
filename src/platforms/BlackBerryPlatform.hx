@@ -102,8 +102,7 @@ class BlackBerryPlatform implements IPlatformTool {
 		
 		if (!project.environment.exists ("BLACKBERRY_SETUP")) {
 			
-			var alias = !project.haxedefs.exists ("nme") ? "openfl" : "nme";
-			LogHelper.error ("You need to run \"" + alias + " setup blackberry\" before you can use the BlackBerry target");
+			LogHelper.error ("You need to run \"lime setup blackberry\" before you can use the BlackBerry target");
 			
 		}
 		
@@ -210,7 +209,7 @@ class BlackBerryPlatform implements IPlatformTool {
 			
 			destination = outputDirectory + "/src/";
 			
-			context.WIN_FLASHBACKGROUND = StringTools.hex (project.window.background, 6);
+			context.WIN_FLASHBACKGROUND = StringTools.hex (project.window[0].background, 6);
 			context.OUTPUT_DIR = outputDirectory;
 			context.OUTPUT_FILE = outputFile;
 			
@@ -249,18 +248,7 @@ class BlackBerryPlatform implements IPlatformTool {
 				
 			}
 			
-			var haxelib = null;
-			
-			if (project.environment.exists ("nme_ver")) {
-				
-				haxelib = new Haxelib ("nme");
-				
-			} else {
-				
-				haxelib = new Haxelib ("openfl-native");
-				
-			}
-			
+			var haxelib = new Haxelib ("lime");
 			var ndlls = project.ndlls.copy ();
 			ndlls.push (new NDLL ("libTouchControlOverlay", haxelib));
 			
@@ -270,7 +258,7 @@ class BlackBerryPlatform implements IPlatformTool {
 				
 			}
 			
-			var linkedLibraries = [ new NDLL ("libSDL", haxelib) ];
+			var linkedLibraries = [ new NDLL ("libSDL", haxelib), new NDLL ("libOpenAL", haxelib) ];
 			
 			for (ndll in linkedLibraries) {
 				

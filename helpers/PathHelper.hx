@@ -1,6 +1,7 @@
 package helpers;
 
 
+import haxe.io.Path;
 import helpers.LogHelper;
 import helpers.ProcessHelper;
 import project.Architecture;
@@ -155,7 +156,7 @@ class PathHelper {
 	}
 	
 
-	public static function getHaxelib (haxelib:Haxelib, validate:Bool = false):String {
+	public static function getHaxelib (haxelib:Haxelib, validate:Bool = false, clearCache:Bool = false):String {
 		
 		var name = haxelib.name;
 		
@@ -165,80 +166,95 @@ class PathHelper {
 			
 		}
 		
+		if (clearCache) {
+			
+			haxelibPaths.remove (name);
+			
+		}
+		
 		if (!haxelibPaths.exists (name)) {
 			
-			if (name == "nme") {
+			var cache = LogHelper.verbose;
+			LogHelper.verbose = false;
+			var output = "";
+			
+			try {
 				
-				var nmePath = Sys.getEnv ("NMEPATH");
+				output = ProcessHelper.runProcess (Sys.getEnv ("HAXEPATH"), "haxelib", [ "path", name ], true, true, true);
 				
-				if (nmePath != null && nmePath != "") {
+			} catch (e:Dynamic) { }
+			
+			LogHelper.verbose = cache;
+			
+			var lines = output.split ("\n");
+			var result = "";
+			
+			for (i in 1...lines.length) {
+				
+				if (StringTools.trim (lines[i]) == "-D " + haxelib.name) {
 					
-					haxelibPaths.set (name, nmePath);
+					result = StringTools.trim (lines[i - 1]);
 					
 				}
 				
-			} else {
+			}
+			
+			if (result == "") {
 				
-				var cache = LogHelper.verbose;
-				LogHelper.verbose = false;
-				var output = "";
-				
-				try {
+				for (line in lines) {
 					
-					output = ProcessHelper.runProcess (Sys.getEnv ("HAXEPATH"), "haxelib", [ "path", name ], true, true, true);
-					
-				} catch (e:Dynamic) { }
-				
-				LogHelper.verbose = cache;
-				
-				var lines = output.split ("\n");
-				var result = "";
-				
-				for (i in 1...lines.length) {
-					
-					if (StringTools.trim (lines[i]) == "-D " + haxelib.name) {
+					if (line != "" && line.substr (0, 1) != "-") {
 						
-						result = StringTools.trim (lines[i - 1]);
+						try {
+							
+							if (FileSystem.exists (line)) {
+								
+								result = line;
+								break;
+								
+							}
+							
+						} catch (e:Dynamic) {}
 						
 					}
 					
 				}
 				
-				if (validate) {
+			}
+			
+			if (validate) {
+				
+				if (result == "") {
 					
-					if (result == "") {
+					if (output.indexOf ("does not have") > -1) {
 						
-						if (output.indexOf ("does not have") > -1) {
+						var directoryName = "";
+						
+						if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
 							
-							var directoryName = "";
+							directoryName = "Windows";
 							
-							if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
-								
-								directoryName = "Windows";
-								
-							} else if (PlatformHelper.hostPlatform == Platform.MAC) {
-								
-								directoryName = PlatformHelper.hostArchitecture == Architecture.X64 ? "Mac64" : "Mac";
-								
-							} else {
-								
-								directoryName = PlatformHelper.hostArchitecture == Architecture.X64 ? "Linux64" : "Linux";
-								
-							}
+						} else if (PlatformHelper.hostPlatform == Platform.MAC) {
 							
-							LogHelper.error ("haxelib \"" + haxelib.name + "\" does not have an \"ndll/" + directoryName + "\" directory");
+							directoryName = PlatformHelper.hostArchitecture == Architecture.X64 ? "Mac64" : "Mac";
 							
 						} else {
 							
-							if (haxelib.version != "") {
-								
-								LogHelper.error ("Could not find haxelib \"" + haxelib.name + "\" version \"" + haxelib.version + "\", does it need to be installed?");
-								
-							} else {
-								
-								LogHelper.error ("Could not find haxelib \"" + haxelib.name + "\", does it need to be installed?");
-								
-							}
+							directoryName = PlatformHelper.hostArchitecture == Architecture.X64 ? "Linux64" : "Linux";
+							
+						}
+						
+						LogHelper.error ("haxelib \"" + haxelib.name + "\" does not have an \"ndll/" + directoryName + "\" directory");
+						
+					} else {
+						
+						if (haxelib.version != "") {
+							
+							LogHelper.error ("Could not find haxelib \"" + haxelib.name + "\" version \"" + haxelib.version + "\", does it need to be installed?");
+							
+						} else {
+							
+							LogHelper.error ("Could not find haxelib \"" + haxelib.name + "\", does it need to be installed?");
 							
 						}
 						
@@ -246,9 +262,9 @@ class PathHelper {
 					
 				}
 				
-				haxelibPaths.set (name, result);
-				
 			}
+			
+			haxelibPaths.set (name, result);
 			
 		}
 		
@@ -368,7 +384,7 @@ class PathHelper {
 			
 			if (part != "." && part != "") {
 				
-				if (total != "") {
+				if (total != "" && total != "/") {
 					
 					total += "/";
 					
@@ -378,7 +394,7 @@ class PathHelper {
 				
 				if (!FileSystem.exists (total)) {
 					
-					LogHelper.info ("", " - Creating directory: " + total);
+					LogHelper.info ("", " - \x1b[1mCreating directory:\x1b[0m " + total);
 					
 					FileSystem.createDirectory (total);
 					
@@ -393,6 +409,79 @@ class PathHelper {
 			Sys.setCwd (oldPath);
 			
 		}
+		
+	}
+	
+	
+	public static function readDirectory (directory:String, ignore:Array<String> = null, paths:Array<String> = null):Array<String> {
+		
+		if (FileSystem.exists (directory)) {
+			
+			if (paths == null) {
+				
+				paths = [];
+				
+			}
+			
+			var files;
+			
+			try {
+				
+				files = FileSystem.readDirectory (directory);
+				
+			} catch (e:Dynamic) {
+				
+				return paths;
+				
+			}
+			
+			for (file in FileSystem.readDirectory (directory)) {
+				
+				if (ignore != null) {
+					
+					var filtered = false;
+					
+					for (filter in ignore) {
+						
+						if (filter == file) {
+							
+							filtered = true;
+							
+						}
+						
+					}
+					
+					if (filtered) continue;
+					
+				}
+				
+				var path = directory + "/" + file;
+				
+				try {
+					
+					if (FileSystem.isDirectory (path)) {
+						
+						readDirectory (path, ignore, paths);
+						
+					} else {
+						
+						paths.push (path);
+						
+					}
+					
+				} catch (e:Dynamic) {
+					
+					return paths;
+					
+				}
+				
+			}
+			
+			return paths;
+			
+		}
+		
+		return null;
 		
 	}
 	
@@ -501,7 +590,7 @@ class PathHelper {
 				
 			}
 			
-			LogHelper.info ("", " - Removing directory: " + directory);
+			LogHelper.info ("", " - \x1b[1mRemoving directory:\x1b[0m " + directory);
 			
 			try {
 				
@@ -542,19 +631,17 @@ class PathHelper {
 			
 		} else if (ndll.haxelib.name == "hxcpp") {
 			
-			return combine (getHaxelib (ndll.haxelib, true), "bin/" + directoryName + "/" + filename);
+			var extension = Path.extension (filename);
 			
-		} else if (ndll.haxelib.name == "nme") {
-			
-			var path = combine (getHaxelib (ndll.haxelib, true), "ndll/" + directoryName + "/" + filename);
-			
-			//if (!FileSystem.exists (path)) {
+			if (extension == "a" || extension == "lib") {
 				
-				//path = combine (getHaxelib (new Haxelib ("nmedev")), "ndll/" + directoryName + "/" + filename);
+				return combine (getHaxelib (ndll.haxelib, true), "lib/" + directoryName + "/" + filename);
 				
-			//}
-			
-			return path;
+			} else {
+				
+				return combine (getHaxelib (ndll.haxelib, true), "bin/" + directoryName + "/" + filename);
+				
+			}
 			
 		} else {
 			

@@ -91,8 +91,12 @@ class CommandLineTools {
 			case "create":
 				
 				createTemplate ();
+				
+			case "install", "remove", "upgrade":
+				
+				updateLibrary ();
 			
-			case "clean", "update", "display", "build", "run", "rerun", "install", "uninstall", "trace", "test":
+			case "clean", "update", "display", "build", "run", "rerun", /*"install",*/ "uninstall", "trace", "test":
 				
 				if (words.length < 1 || words.length > 2) {
 					
@@ -121,7 +125,7 @@ class CommandLineTools {
 		var project = initializeProject ();
 		var platform:IPlatformTool = null;
 		
-		LogHelper.info ("", "Using target platform: " + project.target);
+		LogHelper.info ("", "\x1b[32;1mUsing target platform: " + project.target + "\x1b[0m");
 		
 		switch (project.target) {
 			
@@ -165,6 +169,10 @@ class CommandLineTools {
 				
 				platform = new HTML5Platform ();
 			
+			case FIREFOXOS:
+				
+				platform = new FirefoxOSPlatform ();
+			
 			case EMSCRIPTEN:
 				
 				platform = new EmscriptenPlatform ();
@@ -185,14 +193,14 @@ class CommandLineTools {
 			
 			if (!Reflect.hasField (metaFields.clean, "ignore") && (command == "clean" || targetFlags.exists ("clean"))) {
 				
-				LogHelper.info ("", "\nRunning command: CLEAN");
+				LogHelper.info ("", "\n\x1b[32;1mRunning command: CLEAN\x1b[0m");
 				platform.clean (project);
 				
 			}
 			
 			if (!Reflect.hasField (metaFields.update, "ignore") && (command == "update" || command == "build" || command == "test")) {
 				
-				LogHelper.info ("", "\nRunning command: UPDATE");
+				LogHelper.info ("", "\n\x1b[32;1mRunning command: UPDATE\x1b[0m");
 				AssetHelper.processLibraries (project);
 				platform.update (project);
 				
@@ -200,21 +208,21 @@ class CommandLineTools {
 			
 			if (!Reflect.hasField (metaFields.build, "ignore") && (command == "build" || command == "test")) {
 				
-				LogHelper.info ("", "\nRunning command: BUILD");
+				LogHelper.info ("", "\n\x1b[32;1mRunning command: BUILD\x1b[0m");
 				platform.build (project);
 				
 			}
 			
 			if (!Reflect.hasField (metaFields.install, "ignore") && (command == "install" || command == "run" || command == "test")) {
 				
-				LogHelper.info ("", "\nRunning command: INSTALL");
+				LogHelper.info ("", "\n\x1b[32;1mRunning command: INSTALL\x1b[0m");
 				platform.install (project);
 				
 			}
 		
 			if (!Reflect.hasField (metaFields.run, "ignore") && (command == "run" || command == "rerun" || command == "test")) {
 				
-				LogHelper.info ("", "\nRunning command: RUN");
+				LogHelper.info ("", "\n\x1b[32;1mRunning command: RUN\x1b[0m");
 				platform.run (project, additionalArguments);
 				
 			}
@@ -223,7 +231,7 @@ class CommandLineTools {
 				
 				if (traceEnabled || command == "trace") {
 					
-					LogHelper.info ("", "\nRunning command: TRACE");
+					LogHelper.info ("", "\n\x1b[32;1mRunning command: TRACE\x1b[0m");
 					platform.trace (project);
 					
 				}
@@ -252,27 +260,54 @@ class CommandLineTools {
 	
 	private function createTemplate () {
 		
-		LogHelper.info ("", "Running command: CREATE");
+		LogHelper.info ("", "\x1b[32;1mRunning command: CREATE\x1b[0m");
 		
 		if (words.length > 0) {
 			
-			if (words[0] == "project") {
+			var projectName = words[0].substring (0, words[0].indexOf (":"));
+			var sampleName = words[0].substr (words[0].indexOf (":") + 1);
+			
+			if (sampleName == "project") {
 				
 				CreateTemplate.createProject (words, userDefines);
 				
-			} else if (words[0] == "extension") {
+			} else if (sampleName == "extension") {
 				
 				CreateTemplate.createExtension (words, userDefines);
 				
 			} else {
 				
-				CreateTemplate.createSample (words, userDefines);
+				if (projectName == "") {
+					
+					if (FileSystem.exists (PathHelper.combine (PathHelper.getHaxelib (new Haxelib ("lime")), "samples/" + sampleName))) {
+						
+						CreateTemplate.createSample (words, userDefines);
+						
+					} else if (PathHelper.getHaxelib (new Haxelib (sampleName)) != "") {
+						
+						CreateTemplate.listSamples (sampleName, userDefines);
+						
+					} else if (sampleName == "") {
+						
+						CreateTemplate.listSamples ("lime", userDefines);
+						
+					} else {
+						
+						CreateTemplate.listSamples (null, userDefines);
+						
+					}
+					
+				} else {
+					
+					CreateTemplate.createSample (words, userDefines);
+					
+				}
 				
 			}
 			
 		} else {
 			
-			CreateTemplate.listSamples (userDefines);
+			CreateTemplate.listSamples ("lime", userDefines);
 			
 		}
 		
@@ -285,167 +320,122 @@ class CommandLineTools {
 	}
 	
 	
+	private function ascii (text:String):String {
+		
+		if (PlatformHelper.hostPlatform != Platform.WINDOWS) {
+			
+			return text;
+			
+		}
+		
+		return "";
+		
+	}
+	
+	
 	private function displayHelp ():Void {
 		
 		displayInfo ();
 		
-		var alias = "openfl";
-		var name = "OpenFL";
-		
-		if (userDefines.exists ("nme")) {
-			
-			alias = "nme";
-			name = "NME";
-			
-		}
-		
-		Sys.println ("");
-		Sys.println (" Usage: " + alias + " setup (target)");
-		Sys.println (" Usage: " + alias + " help");
-		Sys.println (" Usage: " + alias + " [clean|update|build|run|test|display] <project> (target) [options]");
-		Sys.println (" Usage: " + alias + " create project <package> [options]");
-		Sys.println (" Usage: " + alias + " create extension <name>");
-		Sys.println (" Usage: " + alias + " create <sample>");
-		Sys.println (" Usage: " + alias + " rebuild <extension> (targets)");
-		//Sys.println (" Usage : nme document <project> (target)");
-		//Sys.println (" Usage : nme generate <args> [options]");
-		//Sys.println (" Usage : nme new file.nmml name1=value1 name2=value2 ...");
-		Sys.println ("");
-		Sys.println (" Commands: ");
-		Sys.println ("");
-		Sys.println ("  setup -- Setup " + name + " or a specific target");
-		Sys.println ("  help -- Show this information");
-		Sys.println ("  clean -- Remove the target build directory if it exists");
-		Sys.println ("  update -- Copy assets for the specified project/target");
-		Sys.println ("  build -- Compile and package for the specified project/target");
-		Sys.println ("  run -- Install and run for the specified project/target");
-		Sys.println ("  test -- Update, build and run in one command");
-		Sys.println ("  display -- Display information for the specified project/target");
-		Sys.println ("  create -- Create a new project or extension using templates");
-		Sys.println ("  rebuild -- Recompile native binaries for extensions");
-		//Sys.println ("  document : Generate documentation using haxedoc");
-		//Sys.println ("  generate : Tools to help create source code automatically");
-		Sys.println ("");
-		Sys.println (" Targets: ");
-		Sys.println ("");
-		Sys.println ("  android -- Create an Android application");
-		Sys.println ("  blackberry -- Create a BlackBerry application");
-		//Sys.println ("  emscripten : Create Emscripten applications");
-		//Sys.println ("  cpp : Create application for the system you are compiling on");
-		
-		if (!userDefines.exists ("nme")) {
-			
-			Sys.println ("  flash -- Create a Flash SWF application");
-			Sys.println ("  html5 -- Create an HTML5 canvas application");
-			
-		}
-		
-		Sys.println ("  ios -- Create an iOS application");
-		Sys.println ("  linux -- Create a Linux application");
-		Sys.println ("  mac -- Create a Mac OS X application");
-		Sys.println ("  tizen -- Create a Tizen application");
-		//Sys.println ("  webos : Create HP webOS applications");
-		Sys.println ("  windows -- Create a Windows application");
-		Sys.println ("");
-		Sys.println (" Options: ");
-		Sys.println ("");
-		Sys.println ("  -D[value] -- Specify a define to use when processing other commands");
-		Sys.println ("  -debug -- Use debug configuration instead of release");
-		Sys.println ("  -verbose -- Print additional information (when available)");
-		Sys.println ("  -clean -- Add a \"clean\" action before running the current command");
-		Sys.println ("  -xml -- Generate XML type information, useful for documentation");
-		Sys.println ("  (windows|mac|linux) -neko -- Build with Neko instead of C++");
-		Sys.println ("  (mac|linux) -32 -- Compile for 32-bit instead of the OS default");
-		Sys.println ("  (mac|linux) -64 -- Compile for 64-bit instead of the OS default");
-		Sys.println ("  (ios|blackberry) -simulator -- Build/test for the device simulator");
-		Sys.println ("  (ios) -simulator -ipad -- Build/test for the iPad Simulator");
-		Sys.println ("  (android) -emulator -- Build/test for the device emulator");
-		
-		if (!userDefines.exists ("nme")) {
-			
-			Sys.println ("  (html5) -minify -- Minify output using the Google Closure compiler");
-			Sys.println ("  (html5) -minify -yui -- Minify output using the YUI compressor");
-			
-		}
-		
-		
-		//Sys.println ("  [android] -arm7 : Compile for arm-7a and arm5");
-		//Sys.println ("  [android] -arm7-only : Compile for arm-7a for testing");
-		
-		//Sys.println ("  [flash] -web : Generate web template files");
-		//Sys.println ("  [flash] -chrome : Generate Google Chrome app template files");
-		//Sys.println ("  [flash] -opera : Generate an Opera Widget");
-		//Sys.println ("  (display) -hxml -- Print HXML information for the project");
-		//Sys.println ("  (display) -nmml -- Print NMML information for the project");
-		//Sys.println ("  (generate) -java-externs : Generate Haxe classes from compiled Java");
-		
-		if (userDefines.exists ("nme")) {
-			
-			Sys.println ("  (run|test) -args a0 a1... -- Pass remaining arguments to executable");
-			
-		}
-		
-		Sys.println ("");
-		Sys.println (" Project Overrides: ");
-		Sys.println ("");
-		Sys.println ("  --app-[option]=[value] -- Override a project <app /> setting");
-		Sys.println ("  --meta-[option]=[value] -- Override a project <meta /> setting");
-		Sys.println ("  --window-[option]=[value] -- Override a project <window /> setting");
-		Sys.println ("  --dependency=[value] -- Add an additional <dependency /> value");
-		Sys.println ("  --haxedef=[value] -- Add an additional <haxedef /> value");
-		Sys.println ("  --haxeflag=[value] -- Add an additional <haxeflag /> value");
-		Sys.println ("  --haxelib=[value] -- Add an additional <haxelib /> value");
-		Sys.println ("  --source=[value] -- Add an additional <source /> value");
-		Sys.println ("  --certificate-[option]=[value] -- Override a project <certificate /> setting");
+		LogHelper.println ("");
+		LogHelper.println (" \x1b[32;1mUsage:\x1b[0m \x1b[1mlime\x1b[0m setup \x1b[3;37m(target)\x1b[0m");
+		LogHelper.println (" \x1b[32;1mUsage:\x1b[0m \x1b[1mlime\x1b[0m clean|update|build|run|test|display \x1b[3;37m<project>\x1b[0m (target) \x1b[3;37m[options]\x1b[0m");
+		LogHelper.println (" \x1b[32;1mUsage:\x1b[0m \x1b[1mlime\x1b[0m create library:template \x1b[3;37m(directory)\x1b[0m");
+		LogHelper.println (" \x1b[32;1mUsage:\x1b[0m \x1b[1mlime\x1b[0m rebuild \x1b[3;37m<extension>\x1b[0m (target)\x1b[3;37m,(target),...\x1b[0m");
+		LogHelper.println (" \x1b[32;1mUsage:\x1b[0m \x1b[1mlime\x1b[0m install|remove|upgrade <library>");
+		LogHelper.println (" \x1b[32;1mUsage:\x1b[0m \x1b[1mlime\x1b[0m help");
+		LogHelper.println ("");
+		LogHelper.println (" \x1b[32;1mCommands:\x1b[0m ");
+		LogHelper.println ("");
+		LogHelper.println ("  \x1b[1msetup\x1b[0m -- Setup Lime or a specific target");
+		LogHelper.println ("  \x1b[1mclean\x1b[0m -- Remove the target build directory if it exists");
+		LogHelper.println ("  \x1b[1mupdate\x1b[0m -- Copy assets for the specified project/target");
+		LogHelper.println ("  \x1b[1mbuild\x1b[0m -- Compile and package for the specified project/target");
+		LogHelper.println ("  \x1b[1mrun\x1b[0m -- Install and run for the specified project/target");
+		LogHelper.println ("  \x1b[1mtest\x1b[0m -- Update, build and run in one command");
+		LogHelper.println ("  \x1b[1mdisplay\x1b[0m -- Display information for the specified project/target");
+		LogHelper.println ("  \x1b[1mcreate\x1b[0m -- Create a new project or extension using templates");
+		LogHelper.println ("  \x1b[1mrebuild\x1b[0m -- Recompile native binaries for extensions");
+		LogHelper.println ("  \x1b[1minstall\x1b[0m -- Install a library from haxelib, plus dependencies");
+		LogHelper.println ("  \x1b[1mremove\x1b[0m -- Remove a library from haxelib");
+		LogHelper.println ("  \x1b[1mupgrade\x1b[0m -- Upgrade a library from haxelib");
+		LogHelper.println ("  \x1b[1mhelp\x1b[0m -- Show this information");
+		LogHelper.println ("");
+		LogHelper.println (" \x1b[32;1mTargets:\x1b[0m ");
+		LogHelper.println ("");
+		LogHelper.println ("  \x1b[1mandroid\x1b[0m -- Create an Android application");
+		LogHelper.println ("  \x1b[1mblackberry\x1b[0m -- Create a BlackBerry application");
+		LogHelper.println ("  \x1b[1memscripten\x1b[0m -- Create an Emscripten application");
+		LogHelper.println ("  \x1b[1mflash\x1b[0m -- Create a Flash SWF application");
+		LogHelper.println ("  \x1b[1mhtml5\x1b[0m -- Create an HTML5 canvas application");
+		LogHelper.println ("  \x1b[1mios\x1b[0m -- Create an iOS application");
+		LogHelper.println ("  \x1b[1mlinux\x1b[0m -- Create a Linux application");
+		LogHelper.println ("  \x1b[1mmac\x1b[0m -- Create a Mac OS X application");
+		LogHelper.println ("  \x1b[1mtizen\x1b[0m -- Create a Tizen application");
+		LogHelper.println ("  \x1b[1mwebos\x1b[0m -- Create a webOS application");
+		LogHelper.println ("  \x1b[1mwindows\x1b[0m -- Create a Windows application");
+		LogHelper.println ("");
+		LogHelper.println (" \x1b[32;1mOptions:\x1b[0m ");
+		LogHelper.println ("");
+		LogHelper.println ("  \x1b[1m-D\x1b[0;3mvalue\x1b[0m -- Specify a define to use when processing other commands");
+		LogHelper.println ("  \x1b[1m-debug\x1b[0m -- Use debug configuration instead of release");
+		LogHelper.println ("  \x1b[1m-verbose\x1b[0m -- Print additional information (when available)");
+		LogHelper.println ("  \x1b[1m-clean\x1b[0m -- Add a \"clean\" action before running the current command");
+		LogHelper.println ("  \x1b[1m-xml\x1b[0m -- Generate XML type information, useful for documentation");
+		LogHelper.println ("  \x1b[3m(windows|mac|linux)\x1b[0m \x1b[1m-neko\x1b[0m -- Build with Neko instead of C++");
+		LogHelper.println ("  \x1b[3m(mac|linux)\x1b[0m \x1b[1m-32\x1b[0m -- Compile for 32-bit instead of the OS default");
+		LogHelper.println ("  \x1b[3m(mac|linux)\x1b[0m \x1b[1m-64\x1b[0m -- Compile for 64-bit instead of the OS default");
+		LogHelper.println ("  \x1b[3m(ios|blackberry|tizen|webos)\x1b[0m \x1b[1m-simulator\x1b[0m -- Target the device simulator");
+		LogHelper.println ("  \x1b[3m(ios)\x1b[0m \x1b[1m-simulator -ipad\x1b[0m -- Build/test for the iPad Simulator");
+		LogHelper.println ("  \x1b[3m(android)\x1b[0m \x1b[1m-emulator\x1b[0m -- Target the device emulator");
+		LogHelper.println ("  \x1b[3m(html5)\x1b[0m \x1b[1m-minify\x1b[0m -- Minify output using the Google Closure compiler");
+		LogHelper.println ("  \x1b[3m(html5)\x1b[0m \x1b[1m-minify -yui\x1b[0m -- Minify output using the YUI compressor");
+		LogHelper.println ("");
+		LogHelper.println (" \x1b[32;1mProject Overrides:\x1b[0m ");
+		LogHelper.println ("");
+		LogHelper.println ("  \x1b[1m--app-\x1b[0;3moption=value\x1b[0m -- Override a project <app/> setting");
+		LogHelper.println ("  \x1b[1m--meta-\x1b[0;3moption=value\x1b[0m -- Override a project <meta/> setting");
+		LogHelper.println ("  \x1b[1m--window-\x1b[0;3moption=value\x1b[0m -- Override a project <window/> setting");
+		LogHelper.println ("  \x1b[1m--dependency\x1b[0;3m=value\x1b[0m -- Add an additional <dependency/> value");
+		LogHelper.println ("  \x1b[1m--haxedef\x1b[0;3m=value\x1b[0m -- Add an additional <haxedef/> value");
+		LogHelper.println ("  \x1b[1m--haxeflag\x1b[0;3m=value\x1b[0m -- Add an additional <haxeflag/> value");
+		LogHelper.println ("  \x1b[1m--haxelib\x1b[0;3m=value\x1b[0m -- Add an additional <haxelib/> value");
+		LogHelper.println ("  \x1b[1m--source\x1b[0;3m=value\x1b[0m -- Add an additional <source/> value");
+		LogHelper.println ("  \x1b[1m--certificate-\x1b[0;3moption=value\x1b[0m -- Override a project <certificate/> setting");
 		
 	}
 	
 	
 	private function displayInfo (showHint:Bool = false):Void {
 		
-		var alias = "openfl";
-		var name = "OpenFL";
-		
-		if (userDefines.exists ("nme")) {
+		if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
 			
-			Sys.println (" _____________");
-			Sys.println ("|             |");
-			Sys.println ("|__  _  __  __|");
-			Sys.println ("|  \\| \\/  ||__|");
-			Sys.println ("|\\  \\  \\ /||__|");
-			Sys.println ("|_|\\_|\\/|_||__|");
-			Sys.println ("|             |");
-			Sys.println ("|_____________|");
-			Sys.println ("");
-			
-			alias = "nme";
-			name = "NME";
-			
-		} else {
-			
-			//Sys.println ("   ___                   _____ _     ");
-			//Sys.println ("  / _ \\ _ __   ___ _ __ |  ___| |    ");
-			//Sys.println (" | | | | '_ \\ / _ \\ '_ \\| |_  | |    ");
-			//Sys.println (" | |_| | |_) |  __/ | | |  _| | |__ ");
-			//Sys.println ("  \\___/| .__/ \\___|_| |_|_|   |____|");
-			//Sys.println ("       |_|                           ");
-			//Sys.println ("");
-			
-			Sys.println ("   ____                   ______ _ ");
-			Sys.println ("  / __ \\____  ___  ____  / ____/ / ");
-			Sys.println (" / / / / __ \\/ _ \\/ __ \\/ /__ / /  ");
-			Sys.println ("/ /_/ / /_/ /  __/ / / / ___// /___");
-			Sys.println ("\\____/  ___/\\___/_/ /_/_/   /_____/");
-			Sys.println ("    /_/");
-			Sys.println ("");
+			LogHelper.println ("");
 			
 		}
 		
-		Sys.println (name + " Command-Line Tools (" + version + ")");
+		LogHelper.println ("\x1b[32;1m |. _ _  _");
+		LogHelper.println (" ||| | ||_|");
+		LogHelper.println (" ||| | ||_.\x1b[0m");
+		
+		if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
+			
+			LogHelper.println ("");
+			
+		}
+		
+		//Sys.println ("  __      ");
+		//Sys.println ("  \\ \\  __  __ _ _  ____");
+		//Sys.println ("   \\ \\ \\ \\ \\ \\ \\ \\ \\ -_\\");
+		//Sys.println ("    \\_\\ \\_\\ \\_\\_\\_\\ \\__\\");
+		
+		LogHelper.println ("");
+		LogHelper.println ("\x1b[1mLime Command-Line Tools\x1b[0;1m (" + version + ")\x1b[0m");
+		
 		
 		if (showHint) {
 			
-			Sys.println ("Use \"" + alias + " setup\" to configure " + name + " or \"" + alias + " help\" for more commands");
+			LogHelper.println ("Use \x1b[3mlime setup\x1b[0m to configure Lime or \x1b[3mlime help\x1b[0m for more commands");
 			
 		}
 		
@@ -457,6 +447,10 @@ class CommandLineTools {
 		if (FileSystem.exists (PathHelper.combine (path, "project.hxp"))) {
 			
 			return PathHelper.combine (path, "project.hxp");
+			
+		} else if (FileSystem.exists (PathHelper.combine (path, "project.lime"))) {
+			
+			return PathHelper.combine (path, "project.lime");
 			
 		} else if (FileSystem.exists (PathHelper.combine (path, "project.nmml"))) {
 			
@@ -471,6 +465,7 @@ class CommandLineTools {
 			var files = FileSystem.readDirectory (path);
 			var matches = new Map <String, Array <String>> ();
 			matches.set ("hxp", []);
+			matches.set ("lime", []);
 			matches.set ("nmml", []);
 			matches.set ("xml", []);
 			
@@ -482,7 +477,7 @@ class CommandLineTools {
 					
 					var extension = Path.extension (file);
 					
-					if ((extension == "nmml" && file != "include.nmml") || (extension == "xml" && file != "include.xml") || extension == "hxp") {
+					if ((extension == "lime" && file != "include.lime") || (extension == "nmml" && file != "include.nmml") || (extension == "xml" && file != "include.xml") || extension == "hxp") {
 						
 						matches.get (extension).push (path);
 						
@@ -495,6 +490,12 @@ class CommandLineTools {
 			if (matches.get ("hxp").length > 0) {
 				
 				return matches.get ("hxp")[0];
+				
+			}
+			
+			if (matches.get ("lime").length > 0) {
+				
+				return matches.get ("lime")[0];
 				
 			}
 			
@@ -630,7 +631,7 @@ class CommandLineTools {
 		
 		if (FileSystem.exists (config)) {
 			
-			LogHelper.info ("", "Reading HXCPP config: " + config);
+			LogHelper.info ("", "\x1b[32;1mReading HXCPP config: " + config + "\x1b[0m");
 			
 			return new ProjectXMLParser (config);
 			
@@ -647,18 +648,7 @@ class CommandLineTools {
 	
 	private function getVersion ():String {
 		
-		var json;
-		
-		if (userDefines.exists ("nme")) {
-			
-			json = Json.parse (File.getContent (PathHelper.getHaxelib (new Haxelib ("nme")) + "/haxelib.json"));
-			
-		} else {
-			
-			json = Json.parse (File.getContent (PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/haxelib.json"));
-			
-		}
-		
+		var json = Json.parse (File.getContent (PathHelper.getHaxelib (new Haxelib ("lime-tools")) + "/haxelib.json"));
 		return json.version;
 		
 	}
@@ -672,10 +662,9 @@ class CommandLineTools {
 		
 		var process = new Process (command, [ "path", "lime-tools" ]);
 		var path = "";
+		var lines = new Array <String> ();
 		
 		try {
-			
-			var lines = new Array <String> ();
 			
 			while (true) {
 				
@@ -696,6 +685,28 @@ class CommandLineTools {
 			
 		}
 		
+		if (path == "") {
+			
+			for (line in lines) {
+				
+				if (line != "" && line.substr (0, 1) != "-") {
+					
+					try {
+						
+						if (FileSystem.exists (line)) {
+							
+							path = line;
+							
+						}
+						
+					} catch (e:Dynamic) {}
+					
+				}
+				
+			}
+			
+		}
+		
 		process.close ();
 		path += "/ndll/";
 		
@@ -707,15 +718,15 @@ class CommandLineTools {
 				
 			case MAC:
 				
-				if (PlatformHelper.hostArchitecture == Architecture.X64) {
+				//if (PlatformHelper.hostArchitecture == Architecture.X64) {
 					
 					untyped $loader.path = $array (path + "Mac64/", $loader.path);
 					
-				} else {
+				//} else {
 					
-					untyped $loader.path = $array (path + "Mac/", $loader.path);
+				//	untyped $loader.path = $array (path + "Mac/", $loader.path);
 					
-				}
+				//}
 				
 			case LINUX:
 				
@@ -752,7 +763,7 @@ class CommandLineTools {
 	
 	private function initializeProject ():HXProject {
 		
-		LogHelper.info ("", "Initializing project...");
+		LogHelper.info ("", "\x1b[32;1mInitializing project...\x1b[0m");
 		
 		var projectFile = "";
 		var targetName = "";
@@ -789,7 +800,7 @@ class CommandLineTools {
 			
 		} else {
 			
-			LogHelper.info ("", "Using project file: " + projectFile);
+			LogHelper.info ("", "\x1b[32;1mUsing project file: " + projectFile + "\x1b[0m");
 			
 		}
 		
@@ -862,13 +873,12 @@ class CommandLineTools {
 		HXProject._debug = debug;
 		HXProject._target = target;
 		HXProject._targetFlags = targetFlags;
-		//HXProject._templatePaths = [ nme + "/templates/default", nme + "/tools/command-line" ];
 		
 		try { Sys.setCwd (Path.directory (projectFile)); } catch (e:Dynamic) {}
 		
 		var project:HXProject = null;
 		
-		if (Path.extension (projectFile) == "nmml" || Path.extension (projectFile) == "xml") {
+		if (Path.extension (projectFile) == "lime" || Path.extension (projectFile) == "nmml" || Path.extension (projectFile) == "xml") {
 			
 			project = new ProjectXMLParser (Path.withoutDirectory (projectFile), userDefines, includePaths);
 			
@@ -882,7 +892,6 @@ class CommandLineTools {
 				project.debug = debug;
 				project.target = target;
 				project.targetFlags = targetFlags;
-				//project.templatePaths = project.templatePaths.concat ([ nme + "/templates/default", nme + "/tools/command-line" ]);
 				
 			} else {
 				
@@ -904,7 +913,7 @@ class CommandLineTools {
 		
 		project.haxedefs.set ("tools", version);
 		
-		if (userDefines.exists ("nme")) {
+		/*if (userDefines.exists ("nme")) {
 			
 			project.haxedefs.set ("nme_install_tool", 1);
 			project.haxedefs.set ("nme_ver", version);
@@ -913,7 +922,7 @@ class CommandLineTools {
 			project.config.cpp.buildLibrary = "hxcpp";
 			project.config.cpp.requireBuild = false;
 			
-		}
+		}*/
 		
 		project.merge (overrides);
 		
@@ -1093,6 +1102,8 @@ class CommandLineTools {
 							
 						}
 						
+						var i = 0;
+						
 						overrides.haxelibs.push (new Haxelib (name, version));
 						
 					} else if (field == "source") {
@@ -1159,6 +1170,14 @@ class CommandLineTools {
 							}
 							
 						}
+						
+					} else if (field == "build-library") {
+						
+						overrides.config.cpp.buildLibrary = argValue;
+						
+					} else if (field == "device") {
+						
+						targetFlags.set ("device", argValue);
 						
 					} else {
 						
@@ -1250,20 +1269,85 @@ class CommandLineTools {
 	
 	private function platformSetup ():Void {
 		
-		LogHelper.info ("", "Running command: SETUP");
+		LogHelper.info ("", "\x1b[32;1mRunning command: SETUP\x1b[0m");
 		
 		if (words.length == 0) {
 			
-			PlatformSetup.run ("", userDefines);
+			PlatformSetup.run ("", userDefines, targetFlags);
 			
 		} else if (words.length == 1) {
 			
-			PlatformSetup.run (words[0], userDefines);
+			PlatformSetup.run (words[0], userDefines, targetFlags);
 			
 		} else {
 			
 			LogHelper.error ("Incorrect number of arguments for command 'setup'");
 			return;
+			
+		}
+		
+	}
+	
+	
+	private function updateLibrary ():Void {
+		
+		if ((words.length < 1 && command != "upgrade") || words.length > 1) {
+			
+			LogHelper.error ("Incorrect number of arguments for command '" + command + "'");
+			return;
+			
+		}
+		
+		LogHelper.info ("", "\x1b[32;1mRunning command: " + command.toUpperCase () + "\x1b[0m");
+		
+		var name = "lime";
+		
+		if (words.length > 0) {
+			
+			name = words[0];
+			
+		}
+		
+		var haxelib = new Haxelib (name);
+		var path = PathHelper.getHaxelib (haxelib);
+		
+		switch (command) {
+			
+			case "install":
+				
+				if (path == null || path == "") {
+					
+					PlatformSetup.installHaxelib (haxelib);
+					
+				} else {
+					
+					PlatformSetup.updateHaxelib (haxelib);
+					
+				}
+				
+				PlatformSetup.setupHaxelib (haxelib);
+			
+			case "remove":
+				
+				if (path != null && path != "") {
+					
+					var haxePath = Sys.getEnv ("HAXEPATH");
+					ProcessHelper.runCommand (haxePath, "haxelib", [ "remove", name ]);
+					
+				}
+			
+			case "upgrade":
+				
+				if (path != null && path != "") {
+					
+					PlatformSetup.updateHaxelib (haxelib);
+					PlatformSetup.setupHaxelib (haxelib);
+					
+				} else {
+					
+					LogHelper.warn ("\"" + haxelib.name + "\" is not a valid haxelib, or has not been installed");
+					
+				}
 			
 		}
 		

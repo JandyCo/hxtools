@@ -61,7 +61,7 @@ class ProcessHelper {
 				
 			}
 			
-			if (targetPath.substr (0) == "/") {
+			if (targetPath.substr (0, 1) == "/") {
 				
 				runCommand (workingDirectory, executable, [ targetPath ]);
 				
@@ -79,7 +79,7 @@ class ProcessHelper {
 				
 			}
 			
-			if (targetPath.substr (0) == "/") {
+			if (targetPath.substr (0, 1) == "/") {
 				
 				runCommand (workingDirectory, executable, [ targetPath ]);
 				
@@ -170,7 +170,7 @@ class ProcessHelper {
 			return _runCommand (path, command, args);
 			
 		}
-	  
+		
 	}
 	
 	
@@ -180,7 +180,7 @@ class ProcessHelper {
 		
 		if (path != null && path != "") {
 			
-			LogHelper.info ("", " - Changing directory: " + path + "");
+			LogHelper.info ("", " - \x1b[1mChanging directory:\x1b[0m " + path + "");
 			
 			oldPath = Sys.getCwd ();
 			Sys.setCwd (path);
@@ -203,7 +203,7 @@ class ProcessHelper {
 			
 		}
 		
-		LogHelper.info ("", " - Running command: " + command + argString);
+		LogHelper.info ("", " - \x1b[1mRunning command:\x1b[0m " + command + argString);
 		
 		var result = 0;
 		
@@ -299,7 +299,7 @@ class ProcessHelper {
 		
 		if (path != null && path != "") {
 			
-			LogHelper.info ("", " - Changing directory: " + path + "");
+			LogHelper.info ("", " - \x1b[1mChanging directory:\x1b[0m " + path + "");
 			
 			oldPath = Sys.getCwd ();
 			Sys.setCwd (path);
@@ -322,7 +322,7 @@ class ProcessHelper {
 			
 		}
 		
-		LogHelper.info ("", " - Running process: " + command + argString);
+		LogHelper.info ("", " - \x1b[1mRunning process:\x1b[0m " + command + argString);
 		
 		var output = "";
 		var result = 0;
@@ -441,7 +441,7 @@ class ProcessHelper {
 					
 				}
 				
-			} else if (PlatformHelper.hostPlatform == Platform.WINDOWS) {
+			} else if (PlatformHelper.hostPlatform == Platform.MAC) {
 				
 				var cores = ~/Total Number of Cores: (\d+)/;
 				var output = runProcess ("", "/usr/sbin/system_profiler", [ "-detailLevel", "full", "SPHardwareDataType" ]);

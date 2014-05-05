@@ -132,7 +132,7 @@ class IconHelper {
 	
 	public static function createWindowsIcon (icons:Array <Icon>, targetPath:String):Bool {
 		
-		var sizes = [ 16, 24, 32, 48, 64, 128, 256 ];
+		var sizes = [ 16, 24, 32, 40, 48, 64, 96, 128, 256 ];
 		var bmps = new Array <BitmapData> ();
 		
 		var data_pos = 6;
@@ -268,11 +268,7 @@ class IconHelper {
 		
 		for (icon in icons) {
 			
-			if (match == null && icon.width == 0 && icon.height == 0) {
-				
-				match = icon;
-				
-			} else if (icon.width == width && icon.height == height) {
+			if ((icon.width == 0 && icon.height == 0) || (icon.width == width && icon.height == height)) {
 				
 				match = icon;
 				
