@@ -955,8 +955,6 @@ class ProjectXMLParser extends HXProject {
 									ndll.haxelib = haxelib;
 									
 								}
-
-//								merge (includeProject);
 								
 							}
 							
